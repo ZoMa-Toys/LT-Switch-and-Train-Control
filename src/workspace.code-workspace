@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "esp32_websocket",
+			"path": "../../../Documents/PlatformIO/Projects/esp32_websocket"
+		}
+	],
+	"settings": {}
+}

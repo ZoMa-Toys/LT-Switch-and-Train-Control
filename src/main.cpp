@@ -1,34 +1,27 @@
 #include <WiFi.h>
 #include <WebSocketClient.h>
 #include <ArduinoJson.h>
-#include <BluetoothSerial.h>
+#include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 
-#define WIFI_SSID "Guber-Kray" // change with your own wifi ssid
-#define WIFI_PASS "Hafnium1985!" // change with your own wifi password
-
-BluetoothSerial SerialBT;
+#define WIFI_SSID "Guber-Kray"
+#define WIFI_PASS "Hafnium1985!"
 
 // Server infos
 char* HOST = "guberkray.myftp.org";
 uint16_t PORT = 80;
-
-uint8_t sensor[8] = {16,17,18,19,22,23,24,25};
+uint8_t servo[9] = {0,1,2,3,4,5,6,7,9};
+uint8_t sensor[9] = {GPIO_NUM_13,GPIO_NUM_12,GPIO_NUM_14,GPIO_NUM_27,GPIO_NUM_15,GPIO_NUM_17,GPIO_NUM_18,GPIO_NUM_19,GPIO_NUM_27};
 const long interval = 200;  
 bool activateSensor = false;
-bool debug = true;
+bool debug = false;
 
-int sensorRead(int m){
+int sensorRead(uint8_t sensorPin){
   if (activateSensor){
-    if (sensor[m] > A3){
-      return analogRead(sensor[m]) > 500 ? 1 : 0;
-    }
-    else{
-      return digitalRead(sensor[m]);
-    }
+    return digitalRead(sensorPin);
   }
   else{
     return 1;
@@ -43,24 +36,28 @@ WiFiClient clientTrain;
 
 class Switches{
   public:
-    int pulse;
-    int pmid;
-    bool printed;
+    int pulse = 0;
+    int midPulse;
+    bool printed = 0;
     bool allowed = true;
     long lastMillis = 0;
     long counter = 0;
     int sensorPin;
     int servoPin;
-    void setParameters(int _servoPin, int _pulse, String _printed, int _pmid){
+    int servoIndex;
+    void setParameters(int _servoIndex, int _pulse, String _printed, int _midPulse){
       setPulse(_pulse,(_printed == "Printed" ? true : false));
-      pmid = _pmid;
-      servoPin = _servoPin;
-      sensorPin = sensor[_servoPin];
+      midPulse = _midPulse;
+      servoIndex =_servoIndex;
+      servoPin = servo[_servoIndex];
+      sensorPin = sensor[_servoIndex];
     }
     void setPulse(int _pulse, bool _printed){
-      pulse = _pulse;
-      printed = _printed;
-      counter++;
+      if(pulse != _pulse or printed != _printed){
+        pulse = _pulse;
+        printed = _printed;
+        counter++;
+      }
     }
     String getSensorStatus(){
       unsigned long currentMillis = millis();
@@ -73,7 +70,7 @@ class Switches{
         if (counter>0){
           if(allowed){
             turnServo();
-            ToSend = "{\"motor\":" + String(servoPin) + ",\"pulse\":" + String(pulse) + ",\"printed\": " + String(printed) + "}";
+            ToSend = "{\"motor\":" + String(servoIndex) + ",\"pulse\":" + String(pulse) + ",\"printed\": " + String(printed) + "}";
           }
         }
       }
@@ -101,15 +98,17 @@ class Switches{
   private:
     void turnServo(){
       if (debug){
-        Serial.print("Set pulse ");
+        Serial.print("Counter ");
+        Serial.println(String(counter));
+        Serial.print("Turn servo ");
         Serial.print(String(pulse));
         Serial.print(" on ");
         Serial.println(String(servoPin));
       }
-      pwm.setPWM(servoPin, 0, pulse);
+      pwm.setPWM(servoPin, 0, pulse); 
       if (printed){
         delay(100);
-        pwm.setPWM(servoPin, 0, pmid);
+        pwm.setPWM(servoPin, 0, midPulse);
       }
       counter = 0;
     };
@@ -132,26 +131,38 @@ void onDataReceived(String &data)
     Serial.println(error.f_str());
     return;
   }
-  if (jsoninput.containsKey("motor")){
-    // Serial.println(jsoninput["motor"].as<String>());
-    // Serial.println(String(switches[jsoninput["motor"].as<int>()].pulse));
-    
+  if (jsoninput.containsKey("motor")){   
     switches[jsoninput["motor"].as<int>()].printValues();
     switches[jsoninput["motor"].as<int>()].setPulse(jsoninput["pulse"].as<int>(),jsoninput["printed"].as<bool>());
     switches[jsoninput["motor"].as<int>()].printValues();
-    // Serial.println(String(switches[jsoninput["motor"].as<int>()].pulse));
   }
   else if (jsoninput.containsKey("Status")){
     if (jsoninput["Status"] == "SwitchConfigESP:"){
       JsonArray message = jsoninput["Message"].as<JsonArray>();
       int i = 0;
       for (JsonVariant swconf : message) {
-        int pmid = (swconf["pulse"]["Straight"].as<int>() + swconf["pulse"]["Turn"].as<int>())/2;
-        switches[i].setParameters(i,swconf["pulse"][swconf["switched"].as<String>()].as<int>(),swconf["printed"].as<String>(),pmid);
+        int midPulse = (swconf["pulse"]["Straight"].as<int>() + swconf["pulse"]["Turn"].as<int>())/2;
+        switches[i].setParameters(i,swconf["pulse"][swconf["switched"].as<String>()].as<int>(),swconf["printed"].as<String>(),midPulse);
         switches[i].printValues();
         i++;
       }
       NumOFSwitches = i;
+    }
+  }
+  else if (jsoninput.containsKey("SensorConfig")){
+    Serial.println("SensorConfig");
+    JsonArray SensorConfig = jsoninput["SensorConfig"].as<JsonArray>();
+    Serial.println(SensorConfig);
+    int i = 0;
+    for (JsonVariant senconf : SensorConfig) {
+      sensor[i]=senconf.as<uint8_t>();
+      i++;
+      if(debug){
+        Serial.print("Sensor ");
+        Serial.print(String(i));
+        Serial.print(" Pin ");
+        Serial.println(String(sensor[i]));
+      }
     }
   }
 }
@@ -174,9 +185,7 @@ char initWebSocket(char* wspath,WebSocketClient &wsc,WiFiClient &client)
   return 1;
 }
 
-/*
-  * Connect to the wifi (credential harcoded in the defines)
-  */ 
+
 char connect()
 {
   WiFi.begin(WIFI_SSID, WIFI_PASS); 
@@ -202,8 +211,6 @@ char connect()
 }
 
 void SendData(WebSocketClient &wsc, WiFiClient &c ,String &dataToSend){
-  // Serial.print("dataTosend: ");
-  // Serial.println(dataToSend);
   if (c.connected()) {
     if(dataToSend.length() > 0)
     {
@@ -233,18 +240,24 @@ void GetData(WebSocketClient &wsc, WiFiClient &c){
   }
 };
 
-void setup()
+void setupFunc()
 {
   Serial.begin(115200);
-  SerialBT.begin("ESP32"); 
   // try to connect to the wifi
   Serial.println("Wifi:");
   if(connect() == 0) { return ; };
-
   // once connected to the wifi, let's reach our server
   if(initWebSocket("/ws/switch",webSocketClientSwitch,clientSwitch) == 0) { return ; };
   if(initWebSocket("/ws/train",webSocketClientTrain,clientTrain) == 0) { return ; };
   dataToSend = "{\"action\":\"getConfigESP\"}";
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(50); 
+}
+
+void setup()
+{
+  setupFunc();
 }
 
 
@@ -252,9 +265,6 @@ void setup()
 void loop() {
   if (Serial.available()) {
     dataToSend=Serial.readString();
-  }
-  if (SerialBT.available()) {
-    String datasBT = SerialBT.readString();
   }
   if (dataToSend.indexOf(String("SensorOff"))>-1){
     Serial.println("Sensors Deactivated");
@@ -282,12 +292,17 @@ void loop() {
   else if(dataToSend.indexOf(String("motor"))>-1){
     SendData(webSocketClientSwitch,clientSwitch,dataToSend);
   }
+  else if(dataToSend.indexOf(String("Restart"))>-1){
+    setupFunc();
+  }
 
   GetData(webSocketClientSwitch,clientSwitch);
   GetData(webSocketClientTrain,clientTrain);
   
   for (int i = 0; i < NumOFSwitches ; i++){
     dataToSend = switches[i].getSensorStatus();
-    SendData(webSocketClientSwitch,clientSwitch,dataToSend);
+    if(dataToSend.length() > 0){
+      SendData(webSocketClientSwitch,clientSwitch,dataToSend);
+    }
   }
 }
