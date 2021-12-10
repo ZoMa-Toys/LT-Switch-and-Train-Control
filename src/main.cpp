@@ -13,10 +13,10 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // Server infos
 char* HOST = "guberkray.myftp.org";
 uint16_t PORT = 80;
-uint8_t servo[9] = {0,1,2,3,4,5,6,7,9};
-uint8_t sensor[9] = {GPIO_NUM_13,GPIO_NUM_12,GPIO_NUM_14,GPIO_NUM_27,GPIO_NUM_15,GPIO_NUM_17,GPIO_NUM_18,GPIO_NUM_19,GPIO_NUM_27};
+uint8_t servo[9] = {0,1,2,3,4,5,6,7};
+uint8_t sensor[9] = {GPIO_NUM_13,GPIO_NUM_12,GPIO_NUM_14,GPIO_NUM_27,GPIO_NUM_15,GPIO_NUM_19,GPIO_NUM_18,GPIO_NUM_4};
 const long interval = 200;  
-bool activateSensor = false;
+bool activateSensor = true;
 bool debug = false;
 
 int sensorRead(uint8_t sensorPin){
