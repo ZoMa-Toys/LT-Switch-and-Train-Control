@@ -21,7 +21,7 @@ bool debug = false;
 
 int sensorRead(uint8_t sensorPin){
   if (activateSensor){
-    return digitalRead(sensorPin);
+    return 1-digitalRead(sensorPin);
   }
   else{
     return 1;
