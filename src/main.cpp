@@ -14,14 +14,29 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 char* HOST = "guberkray.myftp.org";
 uint16_t PORT = 80;
 uint8_t servo[9] = {0,1,2,3,4,5,6,7};
-uint8_t sensor[9] = {GPIO_NUM_13,GPIO_NUM_12,GPIO_NUM_14,GPIO_NUM_27,GPIO_NUM_15,GPIO_NUM_19,GPIO_NUM_18,GPIO_NUM_4};
+uint8_t sensor[9] = {36,39,34,35,32,33,13,4};
+const int analogThreshold = 3000;
 const long interval = 200;  
 bool activateSensor = true;
 bool debug = false;
 
 int sensorRead(uint8_t sensorPin){
   if (activateSensor){
-    return 1-digitalRead(sensorPin);
+    if (sensorPin<30){
+      return 1-digitalRead(sensorPin);
+    }
+    else{
+      int sv = analogRead(sensorPin);
+      if (debug){
+        Serial.println(sv);
+      }
+      if(sv>analogThreshold){
+        return 0;
+      }
+      else{
+        return 1;
+      }
+    }
   }
   else{
     return 1;
