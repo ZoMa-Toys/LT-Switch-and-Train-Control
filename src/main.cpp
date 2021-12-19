@@ -6,21 +6,37 @@
 #include <WebSerial.h>
 #include <ArduinoJson.h>
 #include <Adafruit_PWMServoDriver.h>
+#include "Mux.h"
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+using namespace admux;
 
+typedef struct {
+    int pin;
+    int low;
+    int high;
+} sensors; 
+
+Mux mux(Pin(35, INPUT, PinType::Analog), Pinset(27, 26, 25)); 
 const char* ssid = "Guber-Kray";
 const char* password = "Hafnium1985!";
 char* HOST = "guberkray.myftp.org";
 uint16_t PORT = 80;
-uint8_t servo[9] = {0,1,2,3,4,5,6,7};
-uint8_t sensor[9] = {36,39,34,35,32,33,13,4};
-const int analogThreshold = 3000;
-const long interval = 200;  
-bool activateSensor = false;
+uint8_t servo[8] = {0,1,2,3,4,5,6,7};
+sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
+/* int sensor[8] = {0,1,2,3,7,5,6,4}; */
+
+int analogThresholdHigh = 2500;
+int analogThresholdLow = 500;
+const long interval = 700;  
+bool activateSensor = true;
 bool debug = false;
+bool checkLightBool = false;
+bool setThresholds = false;
+int NumOFSwitches=0;
+String dataToSend; // update this with the value you wish to send to the server
 
 
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 AsyncWebServer server(80);
 WebSocketClient webSocketClientSwitch;
 WebSocketClient webSocketClientTrain;
@@ -43,6 +59,104 @@ void SendData(WebSocketClient &wsc, WiFiClient &c ,String &dataToSend){
     c.connect(HOST, PORT);
   }
 };
+
+
+
+char initWebSocket(char* wspath,WebSocketClient &wsc, WiFiClient &wifiClient)
+{
+  if(!wifiClient.connect(HOST, PORT)) {
+    WebSerial.println("Connection failed.");
+    return 0;
+  }
+
+  WebSerial.println("Connected.");
+  wsc.path = wspath;
+  wsc.host = HOST;
+  if (!wsc.handshake(wifiClient)) {
+    WebSerial.println("Handshake failed.");
+    return 0;
+  }
+  WebSerial.println("Handshake successful");
+  return 1;
+}
+
+
+void CheckLights(){
+  int waittMillis=100;
+  int lastM=0;
+  int now=millis();
+  int LRD;
+  int LRDavg;
+  for (int i = 0; i < NumOFSwitches ; i++){
+    while (now<lastM+waittMillis){
+      now=millis();
+    }
+    LRDavg=0;
+    WebSerial.print(i);
+    WebSerial.print(": ");
+    WebSerial.print(sensor[i].low);
+    WebSerial.print(" - ");
+    WebSerial.print(sensor[i].high);
+    WebSerial.print(" | ");
+    LRD=mux.read(sensor[i].pin);
+    WebSerial.print(LRD);
+    LRDavg+=LRD;
+    WebSerial.print("|");
+    while (now<lastM+waittMillis+100){
+      now=millis();
+    }
+    LRD=mux.read(sensor[i].pin);
+    LRDavg+=LRD;
+    WebSerial.print(LRD);
+    WebSerial.print("|");
+    while (now<lastM+waittMillis+200){
+      now=millis();
+    }
+    LRD=mux.read(sensor[i].pin);
+    LRDavg+=LRD;
+    WebSerial.print(LRD);
+    WebSerial.print("|");
+    LRDavg/=3;
+    WebSerial.println(LRDavg);
+    if (setThresholds){
+      sensor[i].low=0.7*LRDavg;
+      sensor[i].high=-1.2*LRDavg;
+      WebSerial.print(i);
+      WebSerial.print(": ");
+      WebSerial.print(sensor[i].low);
+      WebSerial.print(" - ");
+      WebSerial.println(sensor[i].high);
+    }
+    lastM=millis();
+  }
+  checkLightBool=false;
+  setThresholds=false;
+};
+
+int sensorRead(int muxChanel){
+  int data;
+  int data1;
+  int data2;
+  int data3;
+  if (activateSensor){
+    data1 = mux.read(muxChanel);
+    delay(11);
+    data2 = mux.read(muxChanel);
+    delay(11);
+    data3 = mux.read(muxChanel); 
+    data = (data1+data2+data3)/3;
+    if (data<analogThresholdHigh && data>analogThresholdLow){
+      return 1;
+    }
+    else{
+      return 0;
+    }
+  }
+  else{
+    return 1;
+  }
+}
+
 
 /* Message callback of WebSerial */
 void recvMsg(uint8_t *data, size_t len){
@@ -67,61 +181,45 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("Debug Activated");
     debug = true;
   }
+  else if (d.indexOf(String("analogThresholdHigh"))>-1){
+    analogThresholdHigh = d.substring(20,d.length()).toInt();
+    WebSerial.print("analogThresholdHigh set to ");
+    WebSerial.println(analogThresholdHigh);
+  }
+  else if (d.indexOf(String("analogThresholdLow"))>-1){
+    analogThresholdLow = d.substring(19,d.length()).toInt();
+    WebSerial.print("analogThresholdLow set to ");
+    WebSerial.println(analogThresholdLow);
+  }
   else if(d.indexOf(String("action"))>-1){
     SendData(webSocketClientTrain,clientTrain,d);
   }
   else if(d.indexOf(String("motor"))>-1){
     SendData(webSocketClientSwitch,clientSwitch,d);
   }
-/*   else if(d.indexOf(String("Restart"))>-1){
-    setupFunc();
-  } */
+  else if(d.indexOf(String("CheckLights"))>-1){
+    checkLightBool=true;
+    WebSerial.print("checkLightBool chnanged to ");
+    WebSerial.println(checkLightBool);
+  }
+  else if(d.indexOf(String("SetThresHolds"))>-1){
+    checkLightBool=true;
+    setThresholds=true;
+    WebSerial.print("checkLightBool chnanged to ");
+    WebSerial.print(checkLightBool);
+    WebSerial.println(" and setting thresholds.");
+  }
+  else if(d.indexOf(String("Reconnect"))>-1){
+    if(initWebSocket("/switch",webSocketClientSwitch, clientSwitch) == 0) { return ; };
+    if(initWebSocket("/train",webSocketClientTrain, clientTrain) == 0) { return ; };  
+  }
 
 
   WebSerial.println(d);
 }
 
 
-char initWebSocket(char* wspath,WebSocketClient &wsc, WiFiClient &wifiClient)
-{
-  if(!wifiClient.connect(HOST, PORT)) {
-    WebSerial.println("Connection failed.");
-    return 0;
-  }
 
-  WebSerial.println("Connected.");
-  wsc.path = wspath;
-  wsc.host = HOST;
-  if (!wsc.handshake(wifiClient)) {
-    WebSerial.println("Handshake failed.");
-    return 0;
-  }
-  WebSerial.println("Handshake successful");
-  return 1;
-}
-
-int sensorRead(uint8_t sensorPin){
-  if (activateSensor){
-    if (sensorPin<30){
-      return 1-digitalRead(sensorPin);
-    }
-    else{
-      int sv = analogRead(sensorPin);
-      if (debug){
-        WebSerial.println(sv);
-      }
-      if(sv>analogThreshold){
-        return 0;
-      }
-      else{
-        return 1;
-      }
-    }
-  }
-  else{
-    return 1;
-  }
-}
 
 class Switches{
   public:
@@ -139,7 +237,7 @@ class Switches{
       midPulse = _midPulse;
       servoIndex =_servoIndex;
       servoPin = servo[_servoIndex];
-      sensorPin = sensor[_servoIndex];
+      sensorPin = sensor[_servoIndex].pin;
     }
     void setPulse(int _pulse, bool _printed){
       if(pulse != _pulse or printed != _printed){
@@ -202,11 +300,8 @@ class Switches{
       counter = 0;
     };
 };
-
-int NumOFSwitches=0;
 Switches switches[15];
 
-String dataToSend; // update this with the value you wish to send to the server
 
 
 void onDataReceived(String &data)
@@ -237,7 +332,7 @@ void onDataReceived(String &data)
       NumOFSwitches = i;
     }
   }
-  else if (jsoninput.containsKey("SensorConfig")){
+  /* else if (jsoninput.containsKey("SensorConfig")){
     JsonArray SensorConfig = jsoninput["SensorConfig"].as<JsonArray>();
     if (debug){
       WebSerial.println(SensorConfig);
@@ -253,7 +348,7 @@ void onDataReceived(String &data)
         WebSerial.println(String(sensor[i]));
       }
     }
-  }
+  } */
 }
 
 
@@ -306,6 +401,8 @@ void setupFunc(){
   SendData(webSocketClientTrain,clientTrain,dataToSend);
 }
 
+
+
 void setup(void) {
   setupFunc();
 }
@@ -316,9 +413,11 @@ void loop(void) {
   GetData(webSocketClientTrain,clientTrain);
   for (int i = 0; i < NumOFSwitches ; i++){
     dataToSend = switches[i].getSensorStatus();
-    switches[i].printValues();
     if(dataToSend.length() > 0){
       SendData(webSocketClientSwitch,clientSwitch,dataToSend);
     }
+  }
+  if(checkLightBool){
+    CheckLights();
   }
 }
