@@ -30,8 +30,8 @@ int analogThresholdLow = 500;
 const long interval = 700;  
 bool activateSensor = true;
 bool debug = false;
-bool checkLightBool = false;
-bool setThresholds = false;
+bool checkLightBool = true;
+bool setThresholds = true;
 int NumOFSwitches=0;
 String dataToSend; // update this with the value you wish to send to the server
 
