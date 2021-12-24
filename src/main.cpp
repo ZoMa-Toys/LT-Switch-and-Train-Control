@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <Adafruit_PWMServoDriver.h>
 #include "Mux.h"
+#include "Lpf2Hub.h"
 
 using namespace admux;
 
@@ -33,6 +34,21 @@ bool debug = false;
 bool checkLightBool = true;
 bool setThresholds = true;
 int NumOFSwitches=0;
+bool ScanEnabled = false;
+// create a hub instance
+Lpf2Hub myRemote;
+byte portLeft = (byte)PoweredUpRemoteHubPort::LEFT;
+byte portRight = (byte)PoweredUpRemoteHubPort::RIGHT;
+byte portA = (byte)PoweredUpHubPort::A;
+Lpf2Hub myHub;
+int currentSpeed = 0;
+int updatedSpeed = 0;
+Lpf2Hub myHub2;
+int currentSpeed2 = 0;
+int updatedSpeed2 = 0;
+bool isInitialized = false;
+
+
 String dataToSend; // update this with the value you wish to send to the server
 
 
@@ -60,8 +76,6 @@ void SendData(WebSocketClient &wsc, WiFiClient &c ,String &dataToSend){
   }
 };
 
-
-
 char initWebSocket(char* wspath,WebSocketClient &wsc, WiFiClient &wifiClient)
 {
   if(!wifiClient.connect(HOST, PORT)) {
@@ -79,7 +93,6 @@ char initWebSocket(char* wspath,WebSocketClient &wsc, WiFiClient &wifiClient)
   WebSerial.println("Handshake successful");
   return 1;
 }
-
 
 void CheckLights(){
   int waittMillis=100;
@@ -157,7 +170,6 @@ int sensorRead(int muxChanel){
   }
 }
 
-
 /* Message callback of WebSerial */
 void recvMsg(uint8_t *data, size_t len){
   WebSerial.println("Received Data...");
@@ -213,13 +225,27 @@ void recvMsg(uint8_t *data, size_t len){
     if(initWebSocket("/switch",webSocketClientSwitch, clientSwitch) == 0) { return ; };
     if(initWebSocket("/train",webSocketClientTrain, clientTrain) == 0) { return ; };  
   }
-
-
+  else if (d.indexOf(String("StartScan"))>-1){
+    WebSerial.println("Scan Started");
+    ScanEnabled = true;
+  }
+  else if (d.indexOf(String("StopScan"))>-1){
+    WebSerial.println("Scan Stoped");
+    ScanEnabled = false;
+  }
+  else if (d.indexOf(String("Help"))>-1){
+    WebSerial.println("SensorOff");
+    WebSerial.println("SensorOn");
+    WebSerial.println("StartScan");
+    WebSerial.println("StopScan");
+    WebSerial.println("DebugOff");
+    WebSerial.println("DebugOn");
+    WebSerial.println("CheckLights");
+    WebSerial.println("SetThresHolds");
+    WebSerial.println("Reconnect");
+  }
   WebSerial.println(d);
 }
-
-
-
 
 class Switches{
   public:
@@ -302,8 +328,6 @@ class Switches{
 };
 Switches switches[15];
 
-
-
 void onDataReceived(String &data)
 {
 
@@ -350,7 +374,6 @@ void onDataReceived(String &data)
     }
   } */
 }
-
 
 void GetData(WebSocketClient &wsc,WiFiClient &wifiClient){
   String data;
@@ -399,14 +422,150 @@ void setupFunc(){
   pwm.setPWMFreq(50); 
   dataToSend = "{\"action\":\"getConfigESP\"}";
   SendData(webSocketClientTrain,clientTrain,dataToSend);
+  checkLightBool = true;
+  setThresholds = true;
+  myRemote.init(); // initialize the remote hub
+  myHub.init();    // initialize the listening hub
+  myHub2.init();    // initialize the listening hub
 }
 
+void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *pData)
+{
+  Lpf2Hub *myRemoteHub = (Lpf2Hub *)hub;
+
+  if (debug) WebSerial.print("sensorMessage callback for port: ");
+  if (debug) WebSerial.println(portNumber);
+  if (portNumber == portLeft){
+    if (deviceType == DeviceType::REMOTE_CONTROL_BUTTON)
+    {
+      ButtonState buttonState = myRemoteHub->parseRemoteButton(pData);
+      if (debug) WebSerial.print("Buttonstate: ");
+      if (debug) WebSerial.println((byte)buttonState);
+
+      if (buttonState == ButtonState::UP)
+      {
+        updatedSpeed = min(100, currentSpeed + 10);
+      }
+      else if (buttonState == ButtonState::DOWN)
+      {
+        updatedSpeed = max(-100, currentSpeed - 10);
+      }
+      else if (buttonState == ButtonState::STOP)
+      {
+        updatedSpeed = 0;
+      }
+
+      if (currentSpeed != updatedSpeed)
+      {
+        myHub.setBasicMotorSpeed(portA, updatedSpeed);
+        currentSpeed = updatedSpeed;
+      }
+
+      if (debug) WebSerial.print("Current speed:");
+      if (debug) WebSerial.println(currentSpeed);
+    }
+  }
+  if (portNumber == portRight){
+    if (deviceType == DeviceType::REMOTE_CONTROL_BUTTON)
+    {
+      ButtonState buttonState = myRemoteHub->parseRemoteButton(pData);
+      if (debug) WebSerial.print("Buttonstate: ");
+      if (debug) WebSerial.println((byte)buttonState);
+
+      if (buttonState == ButtonState::UP)
+      {
+        updatedSpeed2 = min(100, currentSpeed2 + 10);
+      }
+      else if (buttonState == ButtonState::DOWN)
+      {
+        updatedSpeed2 = max(-100, currentSpeed2 - 10);
+      }
+      else if (buttonState == ButtonState::STOP)
+      {
+        updatedSpeed2 = 0;
+      }
+
+      if (currentSpeed2 != updatedSpeed2)
+      {
+        myHub2.setBasicMotorSpeed(portA, updatedSpeed2);
+        currentSpeed2 = updatedSpeed2;
+      }
+
+      if (debug) WebSerial.print("Current speed:");
+      if (debug) WebSerial.println(currentSpeed2);
+    }
+  }
+}
+
+void setUpConnections(){
+  if (myRemote.isConnecting())
+  {
+    if (myRemote.getHubType() == HubType::POWERED_UP_REMOTE)
+    {
+      //This is the right device
+      if (!myRemote.connectHub())
+      {
+        if (debug) WebSerial.println("Unable to connect to hub");
+      }
+      else
+      {
+        myRemote.setLedColor(GREEN);
+        if (debug) WebSerial.println("Remote connected.");
+      }
+    }
+  }
+  if (myHub.isConnecting())
+  {
+    if (myHub.getHubType() == HubType::POWERED_UP_HUB)
+    {
+      myHub.connectHub();
+      myHub.setLedColor(GREEN);
+      if (debug) WebSerial.println("powered up hub connected.");
+    }
+  }
+  if (myHub2.isConnecting())
+  {
+    if (myHub2.getHubType() == HubType::POWERED_UP_HUB)
+    {
+      myHub2.connectHub();
+      myHub2.setLedColor(GREEN);
+      if (debug) WebSerial.println("powered up hub connected.");
+    }
+  }
+  if (!myRemote.isConnected())
+  {
+    myRemote.init();
+  }
+  if (!myHub.isConnected())
+  {
+    myHub.init();
+  }
+
+  if (!myHub2.isConnected())
+  {
+    myHub2.init();
+  }
+}
+
+void PairTrainsRemote(){
+  if (myRemote.isConnected() && myHub.isConnected() && myHub2.isConnected() && !isInitialized){
+
+    if (debug) WebSerial.println("System is initialized");
+    isInitialized = true;
+    delay(200); //needed because otherwise the message is to fast after the connection procedure and the message will get lost
+    // both activations are needed to get status updates
+    myRemote.activatePortDevice(portLeft, remoteCallback);
+    myRemote.activatePortDevice(portRight, remoteCallback);
+    myRemote.setLedColor(GREEN);
+    myHub.setLedColor(BLUE);
+    myHub2.setLedColor(RED);
+  }
+}
 
 
 void setup(void) {
   setupFunc();
 }
-
 
 void loop(void) {
   GetData(webSocketClientSwitch,clientSwitch);
@@ -418,6 +577,12 @@ void loop(void) {
     }
   }
   if(checkLightBool){
+    delay(2222);
     CheckLights();
   }
+  if (ScanEnabled){
+    delay(100);
+    setUpConnections();
+  }
+  PairTrainsRemote();
 }
