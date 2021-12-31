@@ -35,7 +35,7 @@ void onDataReceived(String &data)
       for (int i = 0 ; i<NumberOfHubs;i++){
         if (myHubs[i].name==jsoninput["train"].as<std::__cxx11::string>()){
           myHubs[i].colorToStop= jsoninput["color"].as<byte>();
-          myHubs[i].distanceToStop= jsoninput["distance"].as<int>()*10;
+          myHubs[i].distanceToStop= jsoninput["distance"].as<int>();
           myHubs[i].setTrainSpeed(jsoninput["speed"].as<int>());
         }
       }
