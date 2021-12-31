@@ -33,5 +33,5 @@ jobs:
           -H 'Accept: */*' 
           -H 'Accept-Encoding: gzip, deflate' 
           -H 'Connection: keep-alive' 
-          -F "MD5="$(md5sum .pio/build/esp32dev/firmware.bin | cut -d ' ' -f 4)"" 
+          -F "MD5="$(md5sum .pio/build/esp32dev/firmware.bin | cut -d ' ' -f 1)"" 
           -F 'firmware=@.pio/build/esp32dev/firmware.bin' 'http://guberkray.myftp.org:8096/update'
