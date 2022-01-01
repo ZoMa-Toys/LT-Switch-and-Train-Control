@@ -133,4 +133,8 @@ void loop(void) {
   if (!isInitialized){
     PairTrainsRemote();
   }
+  if (resetESP){
+    resetESP=false;
+    setupFunc();
+  }
 }

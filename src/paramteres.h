@@ -3,17 +3,12 @@
 
 
 #include <WebSerial.h>
-#include "Lpf2Hub.h"
 #include "Mux.h"
 
 
 
-Color TrainColors[3]={GREEN,BLUE,YELLOW};
-
 // create a hub instance
-Lpf2Hub myRemote;
-byte portLeft = (byte)PoweredUpRemoteHubPort::LEFT;
-byte portRight = (byte)PoweredUpRemoteHubPort::RIGHT;
+
 
 typedef struct {
     int pin;
@@ -28,7 +23,8 @@ uint8_t servo[8] = {0,1,2,3,4,5,6,7};
 sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
-int NumberOfHubs = 2;
+int NumberOfHubs = 1;
+int NumberOfRemotes = 1;
 
 bool checkLightBool = true;
 bool setThresholds = true;
@@ -36,6 +32,7 @@ bool activateSensor = true;
 bool debug = false;
 bool ScanEnabled = false;
 bool isInitialized = false;
+bool resetESP = false;
 
 const char* ssid = "Guber-Kray";
 const char* password = "Hafnium1985!";
@@ -97,6 +94,10 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("Scan Stoped");
     ScanEnabled = false;
   }
+  else if (d.indexOf(String("ResetESP"))>-1){
+    WebSerial.println("Reseting ESP");
+    resetESP = true;
+  }
 /*   else if (d.indexOf(String("SendHubs"))>-1){
     WebSerial.println("Hubs Sent");
     sendHubs();
@@ -106,18 +107,24 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.print("Setting Number Of Hubs To ");
     WebSerial.println(NumberOfHubs);
   }
+  else if (d.indexOf(String("NumberOfRemotes"))>-1){
+    NumberOfRemotes = d.substring(16,d.length()).toInt();
+    WebSerial.print("Setting Number Of Remotes To ");
+    WebSerial.println(NumberOfRemotes);
+  }
   else if (d.indexOf(String("Help"))>-1){
     WebSerial.println("SensorOff");
     WebSerial.println("SensorOn");
     WebSerial.println("StartScan");
     WebSerial.println("StopScan");
-    WebSerial.println("SendHubs");
+    /* WebSerial.println("SendHubs"); */
     WebSerial.println("NumberOfHubs:<NUMBER>");
+    WebSerial.println("NumberOfRemotes:<NUMBER>");
     WebSerial.println("DebugOff");
     WebSerial.println("DebugOn");
     WebSerial.println("CheckLights");
     WebSerial.println("SetThresHolds");
-    WebSerial.println("Reconnect");
+    WebSerial.println("ResetESP");
   }
   WebSerial.println(d);
 }
