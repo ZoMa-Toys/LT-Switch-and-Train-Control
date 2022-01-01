@@ -23,8 +23,8 @@ uint8_t servo[8] = {0,1,2,3,4,5,6,7};
 sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
-int NumberOfHubs = 2;
-int NumberOfRemotes = 2;
+int NumberOfHubs = 1;
+int NumberOfRemotes = 1;
 
 bool checkLightBool = true;
 bool setThresholds = true;
