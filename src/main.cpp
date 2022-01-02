@@ -43,6 +43,27 @@ void onDataReceived(String &data)
     else if (jsoninput["action"]=="getHubs"){
       sendHubs();
     }
+    else if (jsoninput["action"]=="scan"){      
+      ScanEnabled = true;
+      NumberOfHubs = jsoninput['NumberOfHubs'].as<int>();
+      NumberOfRemotes = jsoninput['NumberOfRemotes'].as<int>();
+    }
+    else if (jsoninput["action"]=="stop"){      
+      ScanEnabled = false;
+    }
+    else if (jsoninput["action"]=="disconnectHubs"){      
+      ScanEnabled = false;
+      for (int i = 0 ; i<NumberOfHubs;i++){
+        myHubs[i].Hub.shutDownHub();
+      }
+      for (int i = 0 ; i<NumberOfRemotes;i++){
+        myRemote[i].shutDownHub();
+      }
+      delete[] myHubs;
+      delete[] myRemote;
+      Lpf2Hub myRemote[3];
+      Hubs myHubs[3];
+    }
   }
 }
 
@@ -113,7 +134,15 @@ void setup(void) {
   setupFunc();
 }
 
+bool firstBoot = true;
+
 void loop(void) {
+  if (firstBoot){
+    checkLightBool=true;
+    setThresholds=true;
+    firstBoot=false;
+    delay(1111);
+  }
   GetData(webSocketClientSwitch,clientSwitch);
   GetData(webSocketClientTrain,clientTrain);
   for (int i = 0; i < NumOFSwitches ; i++){
@@ -132,9 +161,5 @@ void loop(void) {
   }
   if (!isInitialized){
     PairTrainsRemote();
-  }
-  if (resetESP){
-    resetESP=false;
-    setupFunc();
   }
 }

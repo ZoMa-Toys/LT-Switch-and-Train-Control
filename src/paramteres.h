@@ -23,8 +23,8 @@ uint8_t servo[8] = {0,1,2,3,4,5,6,7};
 sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
-int NumberOfHubs = 1;
-int NumberOfRemotes = 1;
+int NumberOfHubs = 2;
+int NumberOfRemotes = 2;
 
 bool checkLightBool = true;
 bool setThresholds = true;
@@ -32,7 +32,6 @@ bool activateSensor = true;
 bool debug = false;
 bool ScanEnabled = false;
 bool isInitialized = false;
-bool resetESP = false;
 
 const char* ssid = "Guber-Kray";
 const char* password = "Hafnium1985!";
@@ -96,7 +95,7 @@ void recvMsg(uint8_t *data, size_t len){
   }
   else if (d.indexOf(String("ResetESP"))>-1){
     WebSerial.println("Reseting ESP");
-    resetESP = true;
+    ESP.restart();
   }
 /*   else if (d.indexOf(String("SendHubs"))>-1){
     WebSerial.println("Hubs Sent");
