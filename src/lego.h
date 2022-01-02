@@ -136,13 +136,13 @@ void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceTy
             if (myHubs[i].name == myHub->getHubName()){
                 StopColor = (int)myHubs[i].colorToStop;
                 StopDistance = (int)myHubs[i].distanceToStop;
+                if (CurrentColor == StopColor || CurrentDistance == StopDistance){
+                    myHubs[i].setTrainSpeed(0);
+                }
             }
         }
 
-        if (CurrentColor == StopColor || CurrentDistance == StopDistance)
-        {
-            myHub->stopBasicMotor((byte)PoweredUpHubPort::A);
-        }/* 
+        /* 
         else if (color == (byte)Color::YELLOW)
         {
             myHub->setLedColor((Color)color);
@@ -237,8 +237,10 @@ void PairTrainsRemote(){
             myHubs[i].RemoteID=i-NumberOfRemotes;
             myHubs[i].RemotePort=portRight;
         }
-        myHubs[i].RemoteAddress = myRemote[myHubs[i].RemoteID].getHubAddress();
-        myRemote[myHubs[i].RemoteID].activatePortDevice(myHubs[i].RemotePort, remoteCallback);
+        if (NumberOfRemotes>0){
+            myHubs[i].RemoteAddress = myRemote[myHubs[i].RemoteID].getHubAddress();
+            myRemote[myHubs[i].RemoteID].activatePortDevice(myHubs[i].RemotePort, remoteCallback);
+        }
     }
     sendHubs();
     isInitialized=true;

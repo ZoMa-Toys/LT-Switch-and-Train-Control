@@ -43,8 +43,8 @@ void CheckLights(){
     LRDavg/=3;
     WebSerial.println(LRDavg);
     if (setThresholds){
-      sensor[i].low=0.7*LRDavg;
-      sensor[i].high=1.2*LRDavg;
+      sensor[i].low=0.5*LRDavg;
+      sensor[i].high=LRDavg+(4095-LRDavg)/2;
       WebSerial.print(i);
       WebSerial.print(": ");
       WebSerial.print(sensor[i].low);
