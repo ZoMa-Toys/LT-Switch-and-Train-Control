@@ -64,6 +64,10 @@ void onDataReceived(String &data)
       Lpf2Hub myRemote[3];
       Hubs myHubs[3];
     }
+    else if (jsoninput["action"]=="SetThresHolds"){      
+      checkLightBool=true;
+      setThresholds=true;
+    }
   }
 }
 
