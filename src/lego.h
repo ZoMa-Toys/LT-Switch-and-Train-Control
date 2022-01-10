@@ -1,8 +1,7 @@
 #ifndef lego_h
 #define lego_h
 
-#include "paramteres.h"
-#include <webAndWifi.h>
+#include "WiFIAndWeb.h"
 #include "Lpf2Hub.h"
 
 
@@ -35,7 +34,7 @@ class Hubs{
         HubJSON["NAME"] = name;
         HubJSON["TRAIN_MOTOR"]=2;
         PortDeviceName((byte)PoweredUpHubPort::B);
-        if (debug) serializeJsonPretty(HubJSON,Serial);
+        if (debug=="webserial" || debug=="Serial") serializeJsonPretty(HubJSON,Serial);
         
       
     };
@@ -50,17 +49,14 @@ class Hubs{
         setSpeedJSON["MotorPort"]=MotorPort;
         MessageJSON["Message"]=setSpeedJSON;
         MessageJSON["Status"]="Setting Speed...";
-        String message;
-        serializeJson(MessageJSON,message);
-        if (debug) WebSerial.println(message);
-        SendData(webSocketClientTrain,clientTrain,message);
+        messageJSONToSend=MessageJSON;
       }
-      if (debug) WebSerial.print("Current speed:");
-      if (debug) WebSerial.println(currentSpeed);
+      if (debug=="webserial" || debug=="Serial") WebSerial.print("Current speed:");
+      if (debug=="webserial" || debug=="Serial") WebSerial.println(currentSpeed);
     }
   private:
     void PortDeviceName(byte port){
-      if (debug) WebSerial.println(Hub.getDeviceTypeForPortNumber(port));
+      if (debug=="webserial" || debug=="Serial") WebSerial.println(Hub.getDeviceTypeForPortNumber(port));
       if (Hub.getDeviceTypeForPortNumber(port)==2){
         HubJSON["TRAIN_MOTOR"]=port;
         MotorPort=port;
@@ -80,8 +76,8 @@ Hubs myHubs[3];
 
 
 int remoteClick(ButtonState buttonState,int cSpeed){
-      if (debug) WebSerial.print("Buttonstate: ");
-      if (debug) WebSerial.println((byte)buttonState);
+      if (debug=="webserial" || debug=="Serial") WebSerial.print("Buttonstate: ");
+      if (debug=="webserial" || debug=="Serial") WebSerial.println((byte)buttonState);
       int uSpeed;
       if (buttonState == ButtonState::UP){
         uSpeed = min(100, cSpeed + 10);
@@ -106,8 +102,8 @@ void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *
           thisHubID = i;
       }
   }
-  if (debug) WebSerial.print("sensorMessage callback for port: ");
-  if (debug) WebSerial.println(portNumber);
+  if (debug=="webserial" || debug=="Serial") WebSerial.print("sensorMessage callback for port: ");
+  if (debug=="webserial" || debug=="Serial") WebSerial.println(portNumber);
   if (deviceType == DeviceType::REMOTE_CONTROL_BUTTON){
     ButtonState buttonState = myRemoteHub->parseRemoteButton(pData);
     myHubs[thisHubID].setTrainSpeed(remoteClick(buttonState,myHubs[thisHubID].currentSpeed));
@@ -115,46 +111,33 @@ void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *
 }
 
 void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *pData){
-    Lpf2Hub *myHub = (Lpf2Hub *)hub;
+  Lpf2Hub *myHub = (Lpf2Hub *)hub;
 
-    Serial.print("sensorMessage callback for port: ");
-    Serial.println(portNumber, DEC);
-    if (deviceType == DeviceType::COLOR_DISTANCE_SENSOR)
-    {
-        int CurrentColor = myHub->parseColor(pData);
-        if (debug) WebSerial.print("Color: ");
-        if (debug) WebSerial.println(LegoinoCommon::ColorStringFromColor(CurrentColor).c_str());
-        delay(55);
-        int CurrentDistance = myHub->parseDistance(pData);
-        if (debug) WebSerial.print("CurrentDistance: ");
-        if (debug) WebSerial.println(CurrentDistance);
+  Serial.print("sensorMessage callback for port: ");
+  Serial.println(portNumber, DEC);
+  if (deviceType == DeviceType::COLOR_DISTANCE_SENSOR){
+    int CurrentColor = myHub->parseColor(pData);
+    if (debug=="webserial" || debug=="Serial") WebSerial.print("Color: ");
+    if (debug=="webserial" || debug=="Serial") WebSerial.println(LegoinoCommon::ColorStringFromColor(CurrentColor).c_str());
+    delay(55);
+    int CurrentDistance = myHub->parseDistance(pData);
+    if (debug=="webserial" || debug=="Serial") WebSerial.print("CurrentDistance: ");
+    if (debug=="webserial" || debug=="Serial") WebSerial.println(CurrentDistance);
 
-        int StopColor;
-        int StopDistance;
-        // set hub LED color to detected color of sensor and set motor speed dependent on color
-        for (int i = 0 ; i<NumberOfHubs;i++){
-            if (myHubs[i].name == myHub->getHubName()){
-                StopColor = (int)myHubs[i].colorToStop;
-                StopDistance = (int)myHubs[i].distanceToStop;
-                if (CurrentColor == StopColor || CurrentDistance == StopDistance){
-                    myHubs[i].setTrainSpeed(0);
-                }
-            }
+    int StopColor;
+    int StopDistance;
+    // set hub LED color to detected color of sensor and set motor speed dependent on color
+    for (int i = 0 ; i<NumberOfHubs;i++){
+      if (myHubs[i].name == myHub->getHubName()){
+        StopColor = (int)myHubs[i].colorToStop;
+        StopDistance = (int)myHubs[i].distanceToStop;
+        if (CurrentColor == StopColor || CurrentDistance == StopDistance){
+          myHubs[i].setTrainSpeed(0);
         }
-
-        /* 
-        else if (color == (byte)Color::YELLOW)
-        {
-            myHub->setLedColor((Color)color);
-            myHub->setBasicMotorSpeed((byte)PoweredUpHubPort::A, 25);
-        }
-        else if (color == (byte)Color::BLUE)
-        {
-            myHub->setLedColor((Color)color);
-            myHub->setBasicMotorSpeed((byte)PoweredUpHubPort::A, 35);
-        } */
+      }
     }
   }
+}
 
 
 
@@ -162,13 +145,11 @@ void sendHubs(){
   StaticJsonDocument<200> MessageJSON;
   MessageJSON["Status"]="Connected Hubs:";
   JsonArray Message = MessageJSON.createNestedArray("Message");
-  String stringToSend;
   for (int i = 0 ; i<NumberOfHubs;i++){
     myHubs[i].initHubConf();
     Message.add(myHubs[i].HubJSON);
   }
-  serializeJson(MessageJSON,stringToSend);
-  SendData(webSocketClientTrain,clientTrain,stringToSend);
+  messageJSONToSend=MessageJSON;
 }
 
 
@@ -184,8 +165,8 @@ void setUpConnections(){
         myHubs[i].Hub.connectHub();
         myHubs[i].Hub.setLedColor(LIGHTBLUE);
         connectedHubs++;
-        if (debug) WebSerial.print(connectedHubs);
-        if (debug) WebSerial.println(" powered up hub connected.");
+        if (debug=="webserial" || debug=="Serial") WebSerial.print(connectedHubs);
+        if (debug=="webserial" || debug=="Serial") WebSerial.println(" powered up hub connected.");
       }
     }
     if (!myHubs[i].Hub.isConnected()){
@@ -197,13 +178,13 @@ void setUpConnections(){
         if (myRemote[i].getHubType() == HubType::POWERED_UP_REMOTE){
         //This is the right device
         if (!myRemote[i].connectHub()){
-            if (debug) WebSerial.println("Unable to connect to hub");
+            if (debug=="webserial" || debug=="Serial") WebSerial.println("Unable to connect to hub");
         }
         else{
             myRemote[i].setLedColor(LIGHTBLUE);
             connectedRemotes++;
-            if (debug) WebSerial.print(connectedRemotes);
-            if (debug) WebSerial.println(" Remote connected.");
+            if (debug=="webserial" || debug=="Serial") WebSerial.print(connectedRemotes);
+            if (debug=="webserial" || debug=="Serial") WebSerial.println(" Remote connected.");
 
         }
         }
@@ -244,8 +225,38 @@ void PairTrainsRemote(){
     }
     sendHubs();
     isInitialized=true;
-    if (debug) WebSerial.println("System is initialized");
+    if (debug=="webserial" || debug=="Serial") WebSerial.println("System is initialized");
   }
+}
+
+void setPower(StaticJsonDocument<2048> messageJSON){
+  for (int i = 0 ; i<NumberOfHubs;i++){
+    if (myHubs[i].name==messageJSON["train"].as<std::__cxx11::string>()){
+      myHubs[i].colorToStop= messageJSON["color"].as<byte>();
+      myHubs[i].distanceToStop= messageJSON["distance"].as<int>();
+      myHubs[i].setTrainSpeed(messageJSON["speed"].as<int>());
+    }
+  }
+}
+
+void scan(StaticJsonDocument<2048> messageJSON){
+  ScanEnabled = true;
+  NumberOfHubs = messageJSON['NumberOfHubs'].as<int>();
+  NumberOfRemotes = messageJSON['NumberOfRemotes'].as<int>();
+}
+
+void disconnectHubs(){
+  ScanEnabled = false;
+  for (int i = 0 ; i<NumberOfHubs;i++){
+    myHubs[i].Hub.shutDownHub();
+  }
+  for (int i = 0 ; i<NumberOfRemotes;i++){
+    myRemote[i].shutDownHub();
+  }
+  delete[] myHubs;
+  delete[] myRemote;
+  Lpf2Hub myRemote[3];
+  Hubs myHubs[3];
 }
 
 #endif

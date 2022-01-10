@@ -1,9 +1,18 @@
 #ifndef switch_h
 #define switch_h
-#include "paramteres.h"
+#include "WiFIAndWeb.h"
 #include <Adafruit_PWMServoDriver.h>
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+void setupPWM(){
+    pwm.begin();
+    pwm.setOscillatorFrequency(27000000);
+    pwm.setPWMFreq(50);
+}
+
+
+
 
 void CheckLights(){
   int waittMillis=100;
@@ -109,9 +118,8 @@ class Switches{
         counter++;
       }
     }
-    String getSensorStatus(){
+    void getSensorStatus(){
       unsigned long currentMillis = millis();
-      String ToSend ="";
       int sensorStatus = sensorRead(servoIndex);
       if (sensorStatus == 1){
         if (lastMillis < currentMillis){
@@ -120,7 +128,9 @@ class Switches{
         if (counter>0){
           if(allowed){
             turnServo();
-            ToSend = "{\"motor\":" + String(servoIndex) + ",\"pulse\":" + String(pulse) + ",\"printed\": " + String(printed) + "}";
+            messageJSONToSend["motor"]=servoIndex;
+            messageJSONToSend["pulse"]=pulse;
+            messageJSONToSend["printed"]=printed;
           }
         }
       }
@@ -129,31 +139,16 @@ class Switches{
         lastMillis = currentMillis + interval;
         counter++;
       };
-      return ToSend;
     };
     void printValues(){
-      if (debug){
-        WebSerial.print("motor: ");
-        WebSerial.print(servoPin);
-        WebSerial.print(" pulse: ");
-        WebSerial.print(pulse);
-        WebSerial.print(" printed ");
-        WebSerial.print(String(printed));
-        WebSerial.print(" counter ");
-        WebSerial.print(String(counter));      
-        WebSerial.print(" lastMillis ");
-        WebSerial.println(String(lastMillis));
+      if (debug=="webserial" || debug=="Serial"){
+        WebSerial.println("motor: " + String(servoPin) + " pulse: " + String(pulse) + " printed " + String(printed) + " counter " + String(counter) + " lastMillis " +  String(lastMillis));
       }
     }
   private:
     void turnServo(){
-      if (debug){
-        WebSerial.print("Counter ");
-        WebSerial.println(String(counter));
-        WebSerial.print("Turn servo ");
-        WebSerial.print(String(pulse));
-        WebSerial.print(" on ");
-        WebSerial.println(String(servoPin));
+      if (debug=="webserial" || debug=="Serial"){
+        WebSerial.println("Counter " + String(counter) + " Turn servo " + String(pulse) + " on " + String(servoPin) );
       }
       pwm.setPWM(servoPin, 0, pulse); 
       if (printed){
@@ -164,4 +159,24 @@ class Switches{
     };
 };
 
-#endif // Lpf2Hub_h
+Switches switches[15];
+
+void SwitchTrack(StaticJsonDocument<2048> messageJSON){
+    switches[messageJSON["motor"].as<int>()].printValues();
+    switches[messageJSON["motor"].as<int>()].setPulse(messageJSON["pulse"].as<int>(),messageJSON["printed"].as<bool>());
+    switches[messageJSON["motor"].as<int>()].printValues();
+}
+
+void SetSwitches(StaticJsonDocument<2048> messageJSON){
+    int i = 0;
+    for (JsonVariant swconf : messageJSON.as<JsonArray>()) {
+        int midPulse = (swconf["pulse"]["Straight"].as<int>() + swconf["pulse"]["Turn"].as<int>())/2;
+        switches[i].setParameters(i,swconf["pulse"][swconf["switched"].as<String>()].as<int>(),swconf["printed"].as<String>(),midPulse);
+        switches[i].printValues();
+        i++;
+    }
+    NumOFSwitches = i;
+    debugPrint(String(NumOFSwitches) + " switches configured");
+}
+
+#endif 
