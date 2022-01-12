@@ -34,7 +34,9 @@ class Hubs{
         HubJSON["NAME"] = name;
         HubJSON["TRAIN_MOTOR"]=2;
         PortDeviceName((byte)PoweredUpHubPort::B);
-        if (debug=="webserial" || debug=="Serial") serializeJsonPretty(HubJSON,Serial);
+        String msg;
+        serializeJsonPretty(HubJSON,msg);
+        debugPrint(msg);
         
       
     };
@@ -51,20 +53,20 @@ class Hubs{
         MessageJSON["Status"]="Setting Speed...";
         messageJSONToSend=MessageJSON;
       }
-      if (debug=="webserial" || debug=="Serial") WebSerial.print("Current speed:");
-      if (debug=="webserial" || debug=="Serial") WebSerial.println(currentSpeed);
+      debugPrint("Current speed:" + String(currentSpeed));
     }
   private:
     void PortDeviceName(byte port){
-      if (debug=="webserial" || debug=="Serial") WebSerial.println(Hub.getDeviceTypeForPortNumber(port));
-      if (Hub.getDeviceTypeForPortNumber(port)==2){
+      int devtype = Hub.getDeviceTypeForPortNumber(port);
+      debugPrint(String(devtype));
+      if (devtype==2){
         HubJSON["TRAIN_MOTOR"]=port;
         MotorPort=port;
       }
-      else if (Hub.getDeviceTypeForPortNumber(port)==8){
+      else if (devtype==8){
         HubJSON["LIGHT"]=port;
       }
-      else if (Hub.getDeviceTypeForPortNumber(port)==37){
+      else if (devtype==37){
         HubJSON["COLOR_DISTANCE_SENSOR"]=port;
       }
     }
@@ -76,8 +78,7 @@ Hubs myHubs[3];
 
 
 int remoteClick(ButtonState buttonState,int cSpeed){
-      if (debug=="webserial" || debug=="Serial") WebSerial.print("Buttonstate: ");
-      if (debug=="webserial" || debug=="Serial") WebSerial.println((byte)buttonState);
+      debugPrint("Buttonstate: " + (byte)buttonState);
       int uSpeed;
       if (buttonState == ButtonState::UP){
         uSpeed = min(100, cSpeed + 10);
@@ -102,8 +103,7 @@ void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *
           thisHubID = i;
       }
   }
-  if (debug=="webserial" || debug=="Serial") WebSerial.print("sensorMessage callback for port: ");
-  if (debug=="webserial" || debug=="Serial") WebSerial.println(portNumber);
+  debugPrint("sensorMessage callback for port: " + String(portNumber));
   if (deviceType == DeviceType::REMOTE_CONTROL_BUTTON){
     ButtonState buttonState = myRemoteHub->parseRemoteButton(pData);
     myHubs[thisHubID].setTrainSpeed(remoteClick(buttonState,myHubs[thisHubID].currentSpeed));
@@ -117,12 +117,11 @@ void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceTy
   Serial.println(portNumber, DEC);
   if (deviceType == DeviceType::COLOR_DISTANCE_SENSOR){
     int CurrentColor = myHub->parseColor(pData);
-    if (debug=="webserial" || debug=="Serial") WebSerial.print("Color: ");
-    if (debug=="webserial" || debug=="Serial") WebSerial.println(LegoinoCommon::ColorStringFromColor(CurrentColor).c_str());
+    String msg = LegoinoCommon::ColorStringFromColor(CurrentColor).c_str();
+    debugPrint("Color: " + msg);
     delay(55);
     int CurrentDistance = myHub->parseDistance(pData);
-    if (debug=="webserial" || debug=="Serial") WebSerial.print("CurrentDistance: ");
-    if (debug=="webserial" || debug=="Serial") WebSerial.println(CurrentDistance);
+    debugPrint("CurrentDistance: " + String(CurrentDistance));
 
     int StopColor;
     int StopDistance;
@@ -159,14 +158,14 @@ int connectedHubs =0;
 int connectedRemotes =0;
 
 void setUpConnections(){
+  debugPrint("ScanEnabled: " + String(ScanEnabled));
   for (int i = 0 ; i<NumberOfHubs;i++){
     if (myHubs[i].Hub.isConnecting()){
       if (myHubs[i].Hub.getHubType() == HubType::POWERED_UP_HUB){
         myHubs[i].Hub.connectHub();
         myHubs[i].Hub.setLedColor(LIGHTBLUE);
         connectedHubs++;
-        if (debug=="webserial" || debug=="Serial") WebSerial.print(connectedHubs);
-        if (debug=="webserial" || debug=="Serial") WebSerial.println(" powered up hub connected.");
+        debugPrint(String(connectedHubs) + " powered up hub(s) connected.");
       }
     }
     if (!myHubs[i].Hub.isConnected()){
@@ -178,13 +177,12 @@ void setUpConnections(){
         if (myRemote[i].getHubType() == HubType::POWERED_UP_REMOTE){
         //This is the right device
         if (!myRemote[i].connectHub()){
-            if (debug=="webserial" || debug=="Serial") WebSerial.println("Unable to connect to hub");
+            debugPrint("Unable to connect to hub");
         }
         else{
             myRemote[i].setLedColor(LIGHTBLUE);
             connectedRemotes++;
-            if (debug=="webserial" || debug=="Serial") WebSerial.print(connectedRemotes);
-            if (debug=="webserial" || debug=="Serial") WebSerial.println(" Remote connected.");
+            debugPrint(String(connectedRemotes) + " remote(s) connected.");
 
         }
         }
@@ -200,6 +198,7 @@ void setUpConnections(){
 
 
 void PairTrainsRemote(){
+  debugPrint("isInitialized:" +String(isInitialized));
   if (connectedRemotes == NumberOfRemotes && connectedHubs==NumberOfHubs){
     for (int i = 0 ; i<NumberOfHubs;i++){
         delay(100);
@@ -225,7 +224,7 @@ void PairTrainsRemote(){
     }
     sendHubs();
     isInitialized=true;
-    if (debug=="webserial" || debug=="Serial") WebSerial.println("System is initialized");
+    debugPrint("System is initialized");
   }
 }
 
@@ -243,6 +242,7 @@ void scan(StaticJsonDocument<2048> messageJSON){
   ScanEnabled = true;
   NumberOfHubs = messageJSON['NumberOfHubs'].as<int>();
   NumberOfRemotes = messageJSON['NumberOfRemotes'].as<int>();
+  debugPrint("ScanEnabled: " + String(ScanEnabled) );
 }
 
 void disconnectHubs(){

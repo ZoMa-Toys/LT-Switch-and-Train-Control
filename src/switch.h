@@ -15,6 +15,7 @@ void setupPWM(){
 
 
 void CheckLights(){
+  debugPrint("CheckLights:" + String(checkLightBool) + "setThresholds: " + String(setThresholds));
   int waittMillis=100;
   int lastM=0;
   int now=millis();
@@ -25,40 +26,26 @@ void CheckLights(){
       now=millis();
     }
     LRDavg=0;
-    WebSerial.print(i);
-    WebSerial.print(": ");
-    WebSerial.print(sensor[i].low);
-    WebSerial.print(" - ");
-    WebSerial.print(sensor[i].high);
-    WebSerial.print(" | ");
     LRD=mux.read(sensor[i].pin);
-    WebSerial.print(LRD);
     LRDavg+=LRD;
-    WebSerial.print("|");
+    WebSerial.print(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high) + " || " + String(LRD) + "|" );
     while (now<lastM+waittMillis+100){
       now=millis();
     }
     LRD=mux.read(sensor[i].pin);
     LRDavg+=LRD;
-    WebSerial.print(LRD);
-    WebSerial.print("|");
+    WebSerial.print(String(LRD) + "|" );
     while (now<lastM+waittMillis+200){
       now=millis();
     }
     LRD=mux.read(sensor[i].pin);
     LRDavg+=LRD;
-    WebSerial.print(LRD);
-    WebSerial.print("|");
     LRDavg/=3;
-    WebSerial.println(LRDavg);
+    WebSerial.println(String(LRD) + "||" + String(LRDavg));
     if (setThresholds){
       sensor[i].low=0.5*LRDavg;
       sensor[i].high=LRDavg+(4095-LRDavg)/2;
-      WebSerial.print(i);
-      WebSerial.print(": ");
-      WebSerial.print(sensor[i].low);
-      WebSerial.print(" - ");
-      WebSerial.println(sensor[i].high);
+      WebSerial.println(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high));
     }
     lastM=millis();
   }
@@ -104,7 +91,7 @@ class Switches{
     int sensorPin;
     int servoPin;
     int servoIndex;
-    bool shouldSendState=false;
+    bool shouldSendState=true;
     void setParameters(int _servoIndex, int _pulse, String _printed, int _midPulse){
       setPulse(_pulse,(_printed == "Printed" ? true : false));
       midPulse = _midPulse;
@@ -147,15 +134,12 @@ class Switches{
       };
     };
     void printValues(){
-      if (debug=="webserial" || debug=="Serial"){
-        WebSerial.println("motor: " + String(servoPin) + " pulse: " + String(pulse) + " printed " + String(printed) + " counter " + String(counter) + " lastMillis " +  String(lastMillis));
-      }
+      debugPrint("motor: " + String(servoPin) + " pulse: " + String(pulse) + " printed " + String(printed) + " counter " + String(counter) + " lastMillis " +  String(lastMillis));
     }
   private:
     void turnServo(){
-      if (debug=="webserial" || debug=="Serial"){
-        WebSerial.println("Counter " + String(counter) + " Turn servo " + String(pulse) + " on " + String(servoPin) );
-      }
+      debugPrint("Counter " + String(counter) + " Turn servo " + String(pulse) + " on " + String(servoPin) );
+      
       pwm.setPWM(servoPin, 0, pulse); 
       if (printed){
         delay(100);

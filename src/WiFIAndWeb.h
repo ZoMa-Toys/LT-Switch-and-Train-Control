@@ -77,49 +77,50 @@ void sendJSON(){
 
 
 void onDataReceived(String msg){
-    StaticJsonDocument<2048>  messageJSON;
-    if (msg.indexOf("TrackConfig")==-1){
-        DeserializationError error = deserializeJson(messageJSON, msg);
-        if (error) {
-            debugPrint("deserializeJson() failed: ");
-            debugPrint(error.f_str());
-        return;
-        }
-    }
+  debugPrint("Incoming WS msg: " + msg);
+  StaticJsonDocument<2048>  messageJSON;
+  if (msg.indexOf("TrackConfig")==-1){
+      DeserializationError error = deserializeJson(messageJSON, msg);
+      if (error) {
+          debugPrint("deserializeJson() failed: ");
+          debugPrint(error.f_str());
+      return;
+      }
+  }
 
-    if(messageJSON.containsKey("action")){
-      if(messageJSON["action"]=="swtichMotor"){
-          SwitchTrack(messageJSON["message"]);
-      }
-      else if (messageJSON["action"]=="setPower"){
-        setPower(messageJSON["message"]);
-      }
-      else if (messageJSON["action"]=="getHubs"){
-        sendHubs();
-      }
-      else if (messageJSON["action"]=="scan"){      
-        scan(messageJSON["message"]);
-      }
-      else if (messageJSON["action"]=="stop"){      
-        ScanEnabled = false;
-      }
-      else if (messageJSON["action"]=="disconnectHubs"){      
-        disconnectHubs();
-      }
-      else if (messageJSON["action"]=="SetThresHolds"){      
-        checkLightBool=true;
-        setThresholds=true;
-      }
+  if(messageJSON.containsKey("action")){
+    if(messageJSON["action"]=="swtichMotor"){
+        SwitchTrack(messageJSON["message"]);
     }
-    else if(messageJSON.containsKey("Status")){
-        if(messageJSON["Status"]=="SwitchConfigESP:"){
-            debugPrint("Call setswitches");
-            SetSwitches(messageJSON["Message"]);
-        }
-        else if(messageJSON["Status"]=="Updated:"){
-            messageJSONToSend["action"]="getConfigESP";
-        }
+    else if (messageJSON["action"]=="setPower"){
+      setPower(messageJSON["message"]);
     }
+    else if (messageJSON["action"]=="getHubs"){
+      sendHubs();
+    }
+    else if (messageJSON["action"]=="scan"){      
+      scan(messageJSON["message"]);
+    }
+    else if (messageJSON["action"]=="stop"){      
+      ScanEnabled = false;
+    }
+    else if (messageJSON["action"]=="disconnectHubs"){      
+      disconnectHubs();
+    }
+    else if (messageJSON["action"]=="SetThresHolds"){      
+      checkLightBool=true;
+      setThresholds=true;
+    }
+  }
+  else if(messageJSON.containsKey("Status")){
+      if(messageJSON["Status"]=="SwitchConfigESP:"){
+          debugPrint("Call setswitches");
+          SetSwitches(messageJSON["Message"]);
+      }
+      else if(messageJSON["Status"]=="Updated:"){
+          messageJSONToSend["action"]="getConfigESP";
+      }
+  }
 }
 
 
