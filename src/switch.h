@@ -104,6 +104,7 @@ class Switches{
     int sensorPin;
     int servoPin;
     int servoIndex;
+    bool shouldSendState=false;
     void setParameters(int _servoIndex, int _pulse, String _printed, int _midPulse){
       setPulse(_pulse,(_printed == "Printed" ? true : false));
       midPulse = _midPulse;
@@ -116,6 +117,7 @@ class Switches{
         pulse = _pulse;
         printed = _printed;
         counter++;
+        shouldSendState=true;
       }
     }
     void getSensorStatus(){
@@ -128,9 +130,13 @@ class Switches{
         if (counter>0){
           if(allowed){
             turnServo();
-            messageJSONToSend["motor"]=servoIndex;
-            messageJSONToSend["pulse"]=pulse;
-            messageJSONToSend["printed"]=printed;
+            if(shouldSendState){
+              messageJSONToSend["motor"]=servoIndex;
+              messageJSONToSend["pulse"]=pulse;
+              messageJSONToSend["printed"]=printed;
+              shouldSendState=false;
+            }
+
           }
         }
       }
