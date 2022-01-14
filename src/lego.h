@@ -27,12 +27,13 @@ class Hubs{
     NimBLEAddress RemoteAddress;
     int RemoteID;
     byte RemotePort;
-    StaticJsonDocument<200> HubJSON;
+    StaticJsonDocument<500> HubJSON;
     std::__cxx11::string name;
     
     void initHubConf(){
         HubJSON["NAME"] = name;
         HubJSON["TRAIN_MOTOR"]=2;
+        HubJSON["trainColor"]=trainColor;
         PortDeviceName((byte)PoweredUpHubPort::B);
         String msg;
         serializeJsonPretty(HubJSON,msg);
@@ -41,24 +42,22 @@ class Hubs{
       
     };
     void setTrainSpeed(int uSpeed){
-      StaticJsonDocument<200> setSpeedJSON;
-      StaticJsonDocument<200> MessageJSON;
       if (currentSpeed != uSpeed){
         currentSpeed = min(max(uSpeed,-100),100);
         Hub.setBasicMotorSpeed(MotorPort, currentSpeed);
-        setSpeedJSON["speed"]=currentSpeed;
-        setSpeedJSON["train"]=name.c_str();
-        setSpeedJSON["MotorPort"]=MotorPort;
-        MessageJSON["Message"]=setSpeedJSON;
-        MessageJSON["Status"]="Setting Speed...";
-        messageJSONToSend=MessageJSON;
+        messageJSONToSend["Status"]="Setting Speed...";
+        JsonObject message = messageJSONToSend.createNestedObject("Message");
+        message["speed"]=currentSpeed;
+        message["train"]=name.c_str();
+        message["MotorPort"]=MotorPort;
       }
       debugPrint("Current speed:" + String(currentSpeed));
     }
   private:
     void PortDeviceName(byte port){
       int devtype = Hub.getDeviceTypeForPortNumber(port);
-      debugPrint(String(devtype));
+      delay(300);
+      debugPrint("DEVICE TYPE:" + String(devtype));
       if (devtype==2){
         HubJSON["TRAIN_MOTOR"]=port;
         MotorPort=port;
@@ -98,6 +97,7 @@ int remoteClick(ButtonState buttonState,int cSpeed){
 void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *pData){
   Lpf2Hub *myRemoteHub = (Lpf2Hub *)hub;
   int thisHubID;
+  debugPrint("namivan");
   for (int i = 0;i<NumberOfHubs;i++){
       if(myHubs[i].RemoteAddress == myRemoteHub->getHubAddress() && myHubs[i].RemotePort == portNumber){
           thisHubID = i;
@@ -113,7 +113,6 @@ void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *
 void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *pData){
   Lpf2Hub *myHub = (Lpf2Hub *)hub;
 
-  Serial.print("sensorMessage callback for port: ");
   Serial.println(portNumber, DEC);
   if (deviceType == DeviceType::COLOR_DISTANCE_SENSOR){
     int CurrentColor = myHub->parseColor(pData);
@@ -141,74 +140,70 @@ void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceTy
 
 
 void sendHubs(){
-  StaticJsonDocument<200> MessageJSON;
-  MessageJSON["Status"]="Connected Hubs:";
-  JsonArray Message = MessageJSON.createNestedArray("Message");
+  messageJSONToSend["Status"]="Connected Hubs:";
+  JsonArray Message = messageJSONToSend.createNestedArray("Message");
   for (int i = 0 ; i<NumberOfHubs;i++){
     myHubs[i].initHubConf();
     Message.add(myHubs[i].HubJSON);
   }
-  messageJSONToSend=MessageJSON;
 }
 
-
+String typeIntToString[8]={"UNKNOWNHUB","MISSING","BOOST_MOVE_HUB","POWERED_UP_HUB","POWERED_UP_REMOTE","DUPLO_TRAIN_HUB","CONTROL_PLUS_HUB","MARIO_HUB"};
 
 
 int connectedHubs =0;
 int connectedRemotes =0;
 
-void setUpConnections(){
-  for (int i = 0 ; i<NumberOfHubs;i++){
-    if (!myHubs[i].Hub.isConnected()){
-      debugPrint("InitHUB "+ String(i));
-      myHubs[i].Hub.init();
+void connectHUB(Lpf2Hub &hub,HubType type){
+  if (!hub.isConnected()){
+      hub.init();
+      delay(500);
+      debugPrint("Init " + typeIntToString[int(type)]);
     }
-    if (myHubs[i].Hub.isConnecting()){
-      if (myHubs[i].Hub.getHubType() == HubType::POWERED_UP_HUB){
-        myHubs[i].Hub.connectHub();
-        myHubs[i].Hub.setLedColor(LIGHTBLUE);
-        connectedHubs++;
-        debugPrint(String(connectedHubs) + " powered up hub(s) connected.");
+  if (hub.isConnecting()){
+    if (hub.getHubType() == type){
+      hub.connectHub();
+      debugPrint(typeIntToString[int(type)] + " is connecting");
+      if (hub.isConnected()){
+        debugPrint("Connected to " + typeIntToString[int(type)]);
+        hub.setLedColor(LIGHTBLUE);
+        if (type == HubType::POWERED_UP_HUB ){
+          connectedHubs++;
+        }
+        else if (type == HubType::POWERED_UP_REMOTE ){
+          connectedRemotes++;
+        }
       }
-    }
-  }
-  for (int i = 0 ; i<NumberOfRemotes;i++){
-    if (!myRemote[i].isConnected()){
-      myRemote[i].init();
-      debugPrint("InitRemote "+ String(i));
-    }
-    if (myRemote[i].isConnecting()){
-        if (myRemote[i].getHubType() == HubType::POWERED_UP_REMOTE){
-        //This is the right device
-        if (!myRemote[i].connectHub()){
-            debugPrint("Unable to connect to hub");
-        }
-        else{
-            myRemote[i].setLedColor(LIGHTBLUE);
-            connectedRemotes++;
-            debugPrint(String(connectedRemotes) + " remote(s) connected.");
-
-        }
-        }
+      else{
+        debugPrint("Failed to connect to " + typeIntToString[int(type)] );
+      }
     }
   }
 }
 
-
-
-
+void setUpConnections(){
+  for (int i = 0 ; i<NumberOfHubs;i++){
+    connectHUB(myHubs[i].Hub,HubType::POWERED_UP_HUB);
+  }
+  for (int i = 0 ; i<NumberOfRemotes;i++){
+    connectHUB(myRemote[i],HubType::POWERED_UP_REMOTE);
+  }
+}
 
 void PairTrainsRemote(){
   if (connectedRemotes == NumberOfRemotes && connectedHubs==NumberOfHubs){
     for (int i = 0 ; i<NumberOfHubs;i++){
-        delay(100);
+      delay(100);
+        debugPrint("color: " + String(TrainColors[i]));
         myHubs[i].Hub.setLedColor(TrainColors[i]);
+        delay(200);
         myHubs[i].trainColor=TrainColors[i];
         myHubs[i].name=myHubs[i].Hub.getHubName();
+        delay(200);
         myHubs[i].initHubConf();
         byte portB = (byte)PoweredUpHubPort::B;
         if (myHubs[i].HubJSON.containsKey("COLOR_DISTANCE_SENSOR"))  myHubs[i].Hub.activatePortDevice(portB, colorDistanceSensorCallback);
-        if (i<NumberOfRemotes){
+         if (i<NumberOfRemotes){
             myHubs[i].RemoteID=i;
             myHubs[i].RemotePort=portLeft;
             myRemote[i].setLedColor(TrainColors[i]);
@@ -221,14 +216,16 @@ void PairTrainsRemote(){
             myHubs[i].RemoteAddress = myRemote[myHubs[i].RemoteID].getHubAddress();
             myRemote[myHubs[i].RemoteID].activatePortDevice(myHubs[i].RemotePort, remoteCallback);
         }
-    }
+      }
     sendHubs();
     isInitialized=true;
-    debugPrint("System is initialized");
+    ScanEnabled=false;
+    debugPrint("System is initialized"); 
   }
 }
 
 void setPower(StaticJsonDocument<2048> messageJSON){
+  serializeJsonPretty(messageJSON,Serial);
   for (int i = 0 ; i<NumberOfHubs;i++){
     if (myHubs[i].name==messageJSON["train"].as<std::__cxx11::string>()){
       myHubs[i].colorToStop= messageJSON["color"].as<byte>();
@@ -240,8 +237,8 @@ void setPower(StaticJsonDocument<2048> messageJSON){
 
 void scan(StaticJsonDocument<2048> messageJSON){
   ScanEnabled = true;
-  NumberOfHubs = messageJSON['NumberOfHubs'].as<int>();
-  NumberOfRemotes = messageJSON['NumberOfRemotes'].as<int>();
+  NumberOfHubs = messageJSON["NumberOfHubs"].as<int>();
+  NumberOfRemotes = messageJSON["NumberOfRemotes"].as<int>();
   debugPrint("ScanEnabled: " + String(ScanEnabled) );
 }
 
@@ -253,8 +250,6 @@ void disconnectHubs(){
   for (int i = 0 ; i<NumberOfRemotes;i++){
     myRemote[i].shutDownHub();
   }
-  delete[] myHubs;
-  delete[] myRemote;
   Lpf2Hub myRemote[3];
   Hubs myHubs[3];
 }

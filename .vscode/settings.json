@@ -4,6 +4,9 @@
         "string": "cpp",
         "string_view": "cpp",
         "functional": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp"
     }
 }
