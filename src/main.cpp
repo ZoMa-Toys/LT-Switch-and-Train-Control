@@ -15,6 +15,9 @@ void setup() {
 
 void loop() {
   // let the websockets client check for incoming messages
+  if (WiFi.status() != WL_CONNECTED){
+    ESP.restart();
+  }
   if(client.available()) {
     client.poll();
     if (!messageJSONToSend.isNull()){

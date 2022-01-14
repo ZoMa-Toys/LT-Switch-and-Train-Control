@@ -158,8 +158,11 @@ int connectedHubs =0;
 int connectedRemotes =0;
 
 void setUpConnections(){
-  debugPrint("ScanEnabled: " + String(ScanEnabled));
   for (int i = 0 ; i<NumberOfHubs;i++){
+    if (!myHubs[i].Hub.isConnected()){
+      debugPrint("InitHUB "+ String(i));
+      myHubs[i].Hub.init();
+    }
     if (myHubs[i].Hub.isConnecting()){
       if (myHubs[i].Hub.getHubType() == HubType::POWERED_UP_HUB){
         myHubs[i].Hub.connectHub();
@@ -168,11 +171,12 @@ void setUpConnections(){
         debugPrint(String(connectedHubs) + " powered up hub(s) connected.");
       }
     }
-    if (!myHubs[i].Hub.isConnected()){
-      myHubs[i].Hub.init();
-    }
   }
   for (int i = 0 ; i<NumberOfRemotes;i++){
+    if (!myRemote[i].isConnected()){
+      myRemote[i].init();
+      debugPrint("InitRemote "+ String(i));
+    }
     if (myRemote[i].isConnecting()){
         if (myRemote[i].getHubType() == HubType::POWERED_UP_REMOTE){
         //This is the right device
@@ -187,9 +191,6 @@ void setUpConnections(){
         }
         }
     }
-    if (!myRemote[i].isConnected()){
-        myRemote[i].init();
-    }
   }
 }
 
@@ -198,7 +199,6 @@ void setUpConnections(){
 
 
 void PairTrainsRemote(){
-  debugPrint("isInitialized:" +String(isInitialized));
   if (connectedRemotes == NumberOfRemotes && connectedHubs==NumberOfHubs){
     for (int i = 0 ; i<NumberOfHubs;i++){
         delay(100);
