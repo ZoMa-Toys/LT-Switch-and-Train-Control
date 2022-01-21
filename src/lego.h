@@ -5,7 +5,7 @@
 #include "Lpf2Hub.h"
 
 
-Color TrainColors[3]={GREEN,BLUE,YELLOW};
+Color TrainColors[3]={GREEN,YELLOW,BLUE};
 
 Lpf2Hub myRemote[3];
 byte portLeft = (byte)PoweredUpRemoteHubPort::LEFT;
@@ -20,10 +20,14 @@ class Hubs{
   public:
     Lpf2Hub Hub;
     int currentSpeed;
-    byte MotorPort;
+    int currentLight;
+    byte MotorPort = 0;
+    byte LightPort = 1;
     Color trainColor;
-    byte colorToStop;
+    byte colorToStop=255;
     int distanceToStop;
+    byte colorToSlow=255;
+    int distanceToSlow;
     NimBLEAddress RemoteAddress;
     int RemoteID;
     byte RemotePort;
@@ -32,12 +36,10 @@ class Hubs{
     
     void initHubConf(){
         HubJSON["NAME"] = name;
-        HubJSON["TRAIN_MOTOR"]=2;
-        HubJSON["trainColor"]=trainColor;
+        HubJSON["TRAIN_MOTOR"]=0;
+        HubJSON["traincolor"]=trainColor;
         PortDeviceName((byte)PoweredUpHubPort::B);
-        String msg;
-        serializeJsonPretty(HubJSON,msg);
-        debugPrint(msg);
+
         
       
     };
@@ -49,9 +51,23 @@ class Hubs{
         JsonObject message = messageJSONToSend.createNestedObject("Message");
         message["speed"]=currentSpeed;
         message["train"]=name.c_str();
-        message["MotorPort"]=MotorPort;
+        message["color"]=colorToStop;
+        message["colorSlow"]=colorToSlow;
+        message["distance"]=distanceToStop;
+        message["distanceSlow"]=distanceToSlow;
       }
       debugPrint("Current speed:" + String(currentSpeed));
+    }
+    void setTrainLight(int uLight){
+      if (currentLight != uLight){
+        currentLight = min(max(uLight,-100),100);
+        Hub.setBasicMotorSpeed(LightPort, currentLight);
+        messageJSONToSend["Status"]="Setting Speed...";
+        JsonObject message = messageJSONToSend.createNestedObject("Message");
+        message["light"]=currentLight;
+        message["train"]=name.c_str();
+      }
+      debugPrint("Current light:" + String(currentLight));
     }
   private:
     void PortDeviceName(byte port){
@@ -97,7 +113,6 @@ int remoteClick(ButtonState buttonState,int cSpeed){
 void remoteCallback(void *hub, byte portNumber, DeviceType deviceType, uint8_t *pData){
   Lpf2Hub *myRemoteHub = (Lpf2Hub *)hub;
   int thisHubID;
-  debugPrint("namivan");
   for (int i = 0;i<NumberOfHubs;i++){
       if(myHubs[i].RemoteAddress == myRemoteHub->getHubAddress() && myHubs[i].RemotePort == portNumber){
           thisHubID = i;
@@ -124,15 +139,22 @@ void colorDistanceSensorCallback(void *hub, byte portNumber, DeviceType deviceTy
 
     int StopColor;
     int StopDistance;
+    int SlowColor;
+    int SlowDistance;
     // set hub LED color to detected color of sensor and set motor speed dependent on color
     for (int i = 0 ; i<NumberOfHubs;i++){
       if (myHubs[i].name == myHub->getHubName()){
         StopColor = (int)myHubs[i].colorToStop;
         StopDistance = (int)myHubs[i].distanceToStop;
+        SlowColor = (int)myHubs[i].colorToSlow;
+        SlowDistance = (int)myHubs[i].distanceToSlow;
         if (CurrentColor == StopColor || CurrentDistance == StopDistance){
           myHubs[i].setTrainSpeed(0);
         }
-      }
+        if (CurrentColor == SlowColor || CurrentDistance == SlowDistance){
+          myHubs[i].setTrainSpeed(20);
+        }
+    }
     }
   }
 }
@@ -225,12 +247,14 @@ void PairTrainsRemote(){
 }
 
 void setPower(StaticJsonDocument<2048> messageJSON){
-  serializeJsonPretty(messageJSON,Serial);
   for (int i = 0 ; i<NumberOfHubs;i++){
     if (myHubs[i].name==messageJSON["train"].as<std::__cxx11::string>()){
-      myHubs[i].colorToStop= messageJSON["color"].as<byte>();
+      myHubs[i].colorToStop= (messageJSON["color"].as<byte>()==255?1000:messageJSON["color"].as<byte>());
       myHubs[i].distanceToStop= messageJSON["distance"].as<int>();
+      myHubs[i].colorToStop= (messageJSON["colorSlow"].as<byte>()==255?1000:messageJSON["colorSlow"].as<byte>());
+      myHubs[i].distanceToStop= messageJSON["distanceSlow"].as<int>();
       myHubs[i].setTrainSpeed(messageJSON["speed"].as<int>());
+      myHubs[i].setTrainLight(messageJSON["light"].as<int>());
     }
   }
 }

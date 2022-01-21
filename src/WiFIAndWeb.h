@@ -3,22 +3,42 @@
 
 #include <ArduinoWebsockets.h>
 #include <ArduinoJson.h>
-#include <WiFi.h>
 #include <WebSerial.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 #include "Mux.h"
+
+#ifndef STASSID
+#define STASSID "SOMEWIFI"
+#endif
+#ifndef STAPSK
+#define STAPSK  "SecretPW"
+#endif
+
+#ifndef WSHOST
+#define WSHOST "RANDOMHOST"
+#endif
+
+#ifndef WSPORT
+#define WSPORT 80
+#endif
+
+#ifndef DBG
+#define DBG ""
+#endif
 
 using namespace websockets;
 using namespace admux;
-
-const char* ssid = "Guber-Kray"; //Enter SSID
-const char* password = "Hafnium1985!"; //Enter Password
-const char* websockets_server_host = "192.168.1.88"; //Enter server adress
-const uint16_t websockets_server_port = 80; // Enter server port
+const char* ssid = STASSID; //Enter SSID
+const char* password = STAPSK; //Enter Password
+const char* websockets_server_host = WSHOST; //Enter server adress
+const uint16_t websockets_server_port = WSPORT; // Enter server port
 const char* websockets_server_path = "/ws"; //Enter server adress
-String debug = "";
+String debug = DBG;
 StaticJsonDocument<2048>  messageJSONToSend;
 
 typedef struct {
@@ -77,15 +97,12 @@ void sendJSON(){
 
 
 void onDataReceived(String msg){
-  debugPrint("Incoming WS msg: " + msg);
   StaticJsonDocument<2048>  messageJSON;
-  if (msg.indexOf("TrackConfig")==-1 && msg.indexOf("CardMap")==-1){
-      DeserializationError error = deserializeJson(messageJSON, msg);
-      if (error) {
-          debugPrint("deserializeJson() failed: ");
-          debugPrint(error.f_str());
-      return;
-      }
+  DeserializationError error = deserializeJson(messageJSON, msg);
+  if (error) {
+      debugPrint("deserializeJson() failed: ");
+      debugPrint(error.f_str());
+  return;
   }
 
   if(messageJSON.containsKey("action")){
@@ -129,15 +146,10 @@ void connectWifi(){
 
     // Wait some time to connect to wifi
     Serial.println("connecting to WiFi");
-    for(int i = 0; i < 10 && WiFi.status() != WL_CONNECTED; i++) {
-        Serial.print(".");
-        delay(1000);
-    }
-
-    // Check if connected to wifi
-    if(WiFi.status() != WL_CONNECTED) {
-        Serial.println("No Wifi!");
-        return;
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+      Serial.println("Connection Failed! Rebooting...");
+      delay(5000);
+      ESP.restart();
     }
     Serial.print("Connected to ");
     Serial.println(ssid);
@@ -146,20 +158,29 @@ void connectWifi(){
 }
 
 void connectWS(){
-    Serial.println("Connecting to server.");
-    // try to connect to Websockets server
-    bool connected = client.connect(websockets_server_host, websockets_server_port, websockets_server_path);
-    if(connected) {
-        Serial.println("Connected!");
-        client.send("Hello Server");
-    } else {
-        Serial.println("Not Connected!");
-    }
-    client.onMessage([&](WebsocketsMessage message){
-        String msg;
-        msg=message.data();
+  Serial.println("Connecting to server.");
+  // try to connect to Websockets server
+  bool connected = client.connect(websockets_server_host, websockets_server_port, websockets_server_path);
+  if(connected) {
+    Serial.print("Connected to ");
+    Serial.println(websockets_server_host);
+    client.send(WiFi.localIP().toString() + " connected");
+  } else {
+    Serial.println("Not Connected!");
+  }
+  client.onMessage([&](WebsocketsMessage message){
+    if (message.length()<2048){
+      String msg;
+      msg=message.data();
+      debugPrint("Incoming WS msg: " + msg);
+      if (msg.indexOf("action")>-1 || msg.indexOf("Status")>-1 ){
         onDataReceived(msg);
-    });
+      }
+    }
+    else{
+      debugPrint("Too large message");
+    }
+  });
 }
 
 void recvMsg(uint8_t *data, size_t len){
@@ -184,12 +205,6 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("Debug Activated");
     debug = "webserial";
   }
-/*   else if(d.indexOf(String("action"))>-1){
-    SendData(webSocketClientTrain,clientTrain,d);
-  }
-  else if(d.indexOf(String("motor"))>-1){
-    SendData(webSocketClientSwitch,clientSwitch,d);
-  } */
   else if(d.indexOf(String("CheckLights"))>-1){
     checkLightBool=true;
     WebSerial.print("checkLightBool chnanged to ");
@@ -202,10 +217,6 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.print(checkLightBool);
     WebSerial.println(" and setting thresholds.");
   }
-  /* else if(d.indexOf(String("Reconnect"))>-1){
-    if(initWebSocket("/switch",webSocketClientSwitch, clientSwitch) == 0) { return ; };
-    if(initWebSocket("/train",webSocketClientTrain, clientTrain) == 0) { return ; };  
-  } */
   else if (d.indexOf(String("StartScan"))>-1){
     WebSerial.println("Scan Started");
     ScanEnabled = true;
@@ -218,10 +229,6 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("Reseting ESP");
     ESP.restart();
   }
-/*   else if (d.indexOf(String("SendHubs"))>-1){
-    WebSerial.println("Hubs Sent");
-    sendHubs();
-  } */
   else if (d.indexOf(String("NumberOfHubs"))>-1){
     NumberOfHubs = d.substring(13,d.length()).toInt();
     WebSerial.print("Setting Number Of Hubs To ");
@@ -237,7 +244,6 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("SensorOn");
     WebSerial.println("StartScan");
     WebSerial.println("StopScan");
-    /* WebSerial.println("SendHubs"); */
     WebSerial.println("NumberOfHubs:<NUMBER>");
     WebSerial.println("NumberOfRemotes:<NUMBER>");
     WebSerial.println("DebugOff");
@@ -251,13 +257,43 @@ void recvMsg(uint8_t *data, size_t len){
 
 void createWebSerial(){
   WebSerial.begin(&server);
-    /* Attach Message Callback */
   WebSerial.msgCallback(recvMsg);
+  server.begin();
 }
 
 void createOTA(){
-  AsyncElegantOTA.begin(&server);    // Start ElegantOTA
-  server.begin();
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH) {
+      type = "sketch";
+    } else { // U_FS
+      type = "filesystem";
+    }
+
+    // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+  });
+  ArduinoOTA.begin();
 }
 
 
