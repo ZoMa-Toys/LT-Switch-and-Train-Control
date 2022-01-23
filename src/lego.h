@@ -11,7 +11,12 @@ Lpf2Hub myRemote[3];
 byte portLeft = (byte)PoweredUpRemoteHubPort::LEFT;
 byte portRight = (byte)PoweredUpRemoteHubPort::RIGHT;
 
+int NumberOfHubs = 1;
+int NumberOfRemotes = 1;
 
+
+bool ScanEnabled = false;
+bool isInitialized = false;
 
 
 

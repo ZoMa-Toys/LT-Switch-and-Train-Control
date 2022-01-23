@@ -1,4 +1,4 @@
-#include "WiFIAndWeb.h"
+#include "CallBacks.h"
 
 
 
@@ -6,14 +6,15 @@ void setup() {
   Serial.begin(115200);
   // Connect to wifi
   connectWifi();
-  connectWS();
-  createWebSerial();
-  createOTA();
+  connectWS(onDataReceived);
+  createWebSerial(recvMsg);
   setupPWM();
   messageJSONToSend["action"]="getConfigESP";
+  createOTA();
 }
 
 void loop() {
+  ArduinoOTA.handle();
   // let the websockets client check for incoming messages
   if (WiFi.status() != WL_CONNECTED){
     ESP.restart();

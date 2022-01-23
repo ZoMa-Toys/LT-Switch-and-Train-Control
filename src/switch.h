@@ -2,6 +2,24 @@
 #define switch_h
 #include "WiFIAndWeb.h"
 #include <Adafruit_PWMServoDriver.h>
+#include "Mux.h"
+
+using namespace admux;
+
+typedef struct {
+    int pin;
+    int low;
+    int high;
+} sensors; 
+
+Mux mux(Pin(35, INPUT, PinType::Analog), Pinset(27, 26, 25)); 
+uint8_t servo[8] = {0,1,2,3,4,5,6,7};
+sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
+const long interval = 500; 
+int NumOFSwitches=0;
+bool checkLightBool = true;
+bool setThresholds = true;
+bool activateSensor = true;
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
