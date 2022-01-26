@@ -1,6 +1,6 @@
 #ifndef switch_h
 #define switch_h
-#include "WiFIAndWeb.h"
+#include "WifiAndWeb.h"
 #include <Adafruit_PWMServoDriver.h>
 #include "Mux.h"
 
