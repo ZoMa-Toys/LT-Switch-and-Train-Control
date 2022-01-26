@@ -1,7 +1,7 @@
 #ifndef lego_h
 #define lego_h
 
-#include "WiFIAndWeb.h"
+#include "WifiAndWeb.h"
 #include "Lpf2Hub.h"
 
 
