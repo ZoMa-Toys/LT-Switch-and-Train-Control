@@ -8,10 +8,9 @@ This project is part of the [ZoMa Lego Train](https://github.com/GuBee33/ZoMa-Le
 
 ### Preparation:
 
-Clone the project and **init submodule** too.
+Clone the project and **submodule** too.
 ```
-git clone https://github.com/GuBee33/ZoMa-LT-Switch-and-Train-Control.git
-git submodule update --init --recursive
+git clone --recursive https://github.com/GuBee33/ZoMa-LT-Switch-and-Train-Control.git
 ```
 ### Usage
 
