@@ -6,7 +6,8 @@ void setup() {
   Serial.begin(115200);
   // Connect to wifi
   connectWifi();
-  connectWS(onDataReceived);
+  connectWS();
+  onMessage();
   createWebSerial(recvMsg);
   setupPWM();
   messageJSONToSend["action"]="getConfigESP";
@@ -39,7 +40,8 @@ void loop() {
     }
   }
   else{
-    client.connect(websockets_server_host, websockets_server_port, websockets_server_path);
+    connectWS();
+    onMessage();
   }
   
 

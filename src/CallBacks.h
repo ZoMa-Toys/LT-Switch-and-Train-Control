@@ -51,9 +51,24 @@ void onDataReceived(String msg){
 }
 
 
+void onMessage(){
+  client.onMessage([&](WebsocketsMessage message){
+    if (message.length()<2048){
+      String msg;
+      msg=message.data();
+      debugPrint("Incoming WS msg: " + msg);
+      if (msg.indexOf("action")>-1 || msg.indexOf("Status")>-1 ){
+        onDataReceived(msg);
+      }
+    }
+    else{
+      debugPrint("Too large message");
+    }
+  });
+}
 
 void recvMsg(uint8_t *data, size_t len){
-  WebSerial.println("Received Data...");
+  WebSerial.print("Received Data:");
   String d = "";
   for(int i=0; i < len; i++){
     d += char(data[i]);
