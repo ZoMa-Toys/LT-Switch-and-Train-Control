@@ -51,7 +51,7 @@ void onDataReceived(String msg){
 }
 
 
-void onMessage(){
+/* void onMessage(){
   client.onMessage([&](WebsocketsMessage message){
     if (message.length()<2048){
       String msg;
@@ -65,7 +65,7 @@ void onMessage(){
       debugPrint("Too large message");
     }
   });
-}
+} */
 
 void recvMsg(uint8_t *data, size_t len){
   WebSerial.print("Received Data:");

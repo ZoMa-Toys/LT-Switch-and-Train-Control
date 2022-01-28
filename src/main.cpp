@@ -7,7 +7,6 @@ void setup() {
   // Connect to wifi
   connectWifi();
   connectWS();
-  onMessage();
   createWebSerial(recvMsg);
   setupPWM();
   messageJSONToSend["action"]="getConfigESP";
@@ -41,7 +40,6 @@ void loop() {
   }
   else{
     connectWS();
-    onMessage();
   }
   
 
