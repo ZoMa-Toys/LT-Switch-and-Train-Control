@@ -264,10 +264,10 @@ void setPower(StaticJsonDocument<2048> messageJSON){
   }
 }
 
-void scan(StaticJsonDocument<2048> messageJSON){
+void scan(StaticJsonDocument<2048> msg){
   ScanEnabled = true;
-  NumberOfHubs = messageJSON["NumberOfHubs"].as<int>();
-  NumberOfRemotes = messageJSON["NumberOfRemotes"].as<int>();
+  NumberOfHubs = msg["NumberOfHubs"].as<int>();
+  NumberOfRemotes = msg["NumberOfRemotes"].as<int>();
   debugPrint("ScanEnabled: " + String(ScanEnabled) );
 }
 

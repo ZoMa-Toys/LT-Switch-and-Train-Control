@@ -13,10 +13,13 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   testadndeploy:
+    strategy:
+      matrix:
+        pioenv: ["GITHUB32", "GITHUB8266"]
     uses: ZoMa-Toys/LT-RFID-Cardreader/.github/workflows/testAndDeploy2ESP.yml@master
     with:
       matrixparam: swtich
-      pioenv: GITHUB
+      pioenv: ${{matrix.pioenv}}
     secrets:
       STASSID: ${{secrets.STASSID}}
       STAPSK: ${{secrets.STAPSK}}

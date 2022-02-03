@@ -8,7 +8,7 @@ void setup() {
   connectWifi();
   connectWS();
   createWebSerial(recvMsg);
-  setupPWM();
+  setupPWM_Servo();
   messageJSONToSend["action"]="getConfigESP";
   createOTA();
 }
@@ -24,19 +24,20 @@ void loop() {
     if (!messageJSONToSend.isNull()){
       sendJSON();
     }
-    for (int i = 0; i < NumOFSwitches ; i++){
+    for (int i = minswitchID; i < min(maxswitchID,NumOFSwitches) ; i++){
       switches[i].getSensorStatus();
-
     }
     if(checkLightBool){
       CheckLights();
     }
-    if (ScanEnabled){
-      setUpConnections();
-    }
-    if (!isInitialized){
-      PairTrainsRemote();
-    }
+    #if defined (ESP32)
+      if (ScanEnabled){
+        setUpConnections();
+      }
+      if (!isInitialized){
+        PairTrainsRemote();
+      }
+    #endif
   }
   else{
     connectWS();

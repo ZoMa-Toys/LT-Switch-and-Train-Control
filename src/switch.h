@@ -1,10 +1,49 @@
 #ifndef switch_h
 #define switch_h
 #include "WifiAndWeb.h"
-#include <Adafruit_PWMServoDriver.h>
-#include "Mux.h"
 
-using namespace admux;
+#if !defined(MINSWITCHID) || (EXPAND(MINSWITCHID) == 1)
+#define MINSWITCHID  0
+#endif
+
+#if !defined(MAXSWITCHID) || (EXPAND(MAXSWITCHID) == 1)
+#define MAXSWITCHID  7
+#endif
+
+#if defined (ESP32)
+  #include <Adafruit_PWMServoDriver.h>
+  #include "Mux.h"
+  using namespace admux;
+  Mux mux(Pin(35, INPUT, PinType::Analog), Pinset(27, 26, 25)); 
+  Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+  void setupPWM_Servo(){
+    pwm.begin();
+    pwm.setOscillatorFrequency(27000000);
+    pwm.setPWMFreq(50);
+  } 
+  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
+    pwm.setPWM(servoPin, 0, pulse); 
+      if (printed){
+        delay(100);
+        pwm.setPWM(servoPin, 0, midPulse);
+      }
+  }
+#else
+  #include "Servo.h"
+  Servo myservo;
+  int pulseToangle(int pulse){
+    return map(pulse,0,4096,0,180);
+  }
+  void setupPWM_Servo(){
+    myservo.attach(1);
+  }
+  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
+    myservo.write(pulseToangle(pulse));
+  }
+#endif
+
+
+
 
 typedef struct {
     int pin;
@@ -12,24 +51,24 @@ typedef struct {
     int high;
 } sensors; 
 
-Mux mux(Pin(35, INPUT, PinType::Analog), Pinset(27, 26, 25)); 
-uint8_t servo[8] = {0,1,2,3,4,5,6,7};
-sensors sensor[8] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500}};
+int minswitchID = MINSWITCHID;
+int maxswitchID = MAXSWITCHID;
+uint8_t servo[10] = {0,1,2,3,4,5,6,7,1,1};
+sensors sensor[10] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500},{0,500,2500},{0,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
 bool checkLightBool = true;
 bool setThresholds = true;
 bool activateSensor = true;
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-void setupPWM(){
-    pwm.begin();
-    pwm.setOscillatorFrequency(27000000);
-    pwm.setPWMFreq(50);
+int readSensor(int pin){
+  #if defined (ESP32)
+    return mux.read(pin);
+  #else
+    return analogRead(pin);
+  #endif
 }
-
-
 
 
 void CheckLights(){
@@ -44,19 +83,19 @@ void CheckLights(){
       now=millis();
     }
     LRDavg=0;
-    LRD=mux.read(sensor[i].pin);
+    LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
     WebSerial.print(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high) + " || " + String(LRD) + "|" );
     while (now<lastM+waittMillis+100){
       now=millis();
     }
-    LRD=mux.read(sensor[i].pin);
+    LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
     WebSerial.print(String(LRD) + "|" );
     while (now<lastM+waittMillis+200){
       now=millis();
     }
-    LRD=mux.read(sensor[i].pin);
+    LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
     LRDavg/=3;
     WebSerial.println(String(LRD) + "||" + String(LRDavg));
@@ -79,11 +118,11 @@ int sensorRead(int index){
   int data2;
   int data3;
   if (activateSensor){
-    data1 = mux.read(muxChanel);
+    data1 = readSensor(muxChanel);
     delay(11);
-    data2 = mux.read(muxChanel);
+    data2 = readSensor(muxChanel);
     delay(11);
-    data3 = mux.read(muxChanel); 
+    data3 = readSensor(muxChanel); 
     data = (data1+data2+data3)/3;
     if (data<sensor[index].high && data>sensor[index].low){
       return 1;
@@ -158,11 +197,8 @@ class Switches{
     void turnServo(){
       debugPrint("Counter " + String(counter) + " Turn servo " + String(pulse) + " on " + String(servoPin) );
       
-      pwm.setPWM(servoPin, 0, pulse); 
-      if (printed){
-        delay(100);
-        pwm.setPWM(servoPin, 0, midPulse);
-      }
+      turnServoGeneral(pulse,printed,servoPin,midPulse);
+      
       counter = 0;
     };
 };
