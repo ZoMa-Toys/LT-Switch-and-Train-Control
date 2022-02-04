@@ -15,7 +15,7 @@ jobs:
   testadndeploy:
     uses: ZoMa-Toys/LT-RFID-Cardreader/.github/workflows/testAndDeploy2ESP.yml@master
     with:
-      matrixparam: swtich
+      matrixparam: switch
       pioenv: GITHUB
     secrets:
       STASSID: ${{secrets.STASSID}}
