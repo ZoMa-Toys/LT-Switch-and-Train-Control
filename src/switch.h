@@ -2,11 +2,11 @@
 #define switch_h
 #include "WifiAndWeb.h"
 
-#if !defined(MINSWITCHID) || (EXPAND(MINSWITCHID) == 1)
+#ifndef MINSWITCHID
 #define MINSWITCHID  0
 #endif
 
-#if !defined(MAXSWITCHID) || (EXPAND(MAXSWITCHID) == 1)
+#ifndef MAXSWITCHID 
 #define MAXSWITCHID  7
 #endif
 
@@ -32,10 +32,11 @@
   #include "Servo.h"
   Servo myservo;
   int pulseToangle(int pulse){
-    return map(pulse,0,4096,0,180);
+    debugPrint("pulse:" + String(pulse) + " -> " + String(map(pulse,150,600,0,180)));
+    return map(pulse,150,600,0,180);
   }
   void setupPWM_Servo(){
-    myservo.attach(1);
+    myservo.attach(4);
   }
   void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
     myservo.write(pulseToangle(pulse));
@@ -53,12 +54,12 @@ typedef struct {
 
 int minswitchID = MINSWITCHID;
 int maxswitchID = MAXSWITCHID;
-uint8_t servo[10] = {0,1,2,3,4,5,6,7,1,1};
+uint8_t servo[10] = {0,1,2,3,4,5,6,7,4,4};
 sensors sensor[10] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500},{0,500,2500},{0,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
-bool checkLightBool = true;
-bool setThresholds = true;
+bool checkLightBool = false;
+bool setThresholds = false;
 bool activateSensor = true;
 
 
@@ -191,7 +192,7 @@ class Switches{
       };
     };
     void printValues(){
-      debugPrint("motor: " + String(servoPin) + " pulse: " + String(pulse) + " printed " + String(printed) + " counter " + String(counter) + " lastMillis " +  String(lastMillis));
+      debugPrint("motor: " + String(servoPin) + "(" + String(servoIndex) + ") pulse: " + String(pulse) + " printed " + String(printed) + " counter " + String(counter) + " lastMillis " +  String(lastMillis));
     }
   private:
     void turnServo(){
@@ -221,6 +222,8 @@ void SetSwitches(StaticJsonDocument<2048> messageJSON){
     }
     NumOFSwitches = i;
     debugPrint(String(NumOFSwitches) + " switches configured");
+    setThresholds = true;
+    activateSensor = true;
 }
 
 #endif 

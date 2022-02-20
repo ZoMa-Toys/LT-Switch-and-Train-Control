@@ -24,7 +24,7 @@ void loop() {
     if (!messageJSONToSend.isNull()){
       sendJSON();
     }
-    for (int i = minswitchID; i < min(maxswitchID,NumOFSwitches) ; i++){
+    for (int i = minswitchID; i <= min(maxswitchID,NumOFSwitches-1) ; i++){
       switches[i].getSensorStatus();
     }
     if(checkLightBool){
