@@ -8,9 +8,12 @@ void setup() {
   connectWifi();
   connectWS();
   createWebSerial(recvMsg);
+  createOTA();
   setupPWM_Servo();
   messageJSONToSend["action"]="getConfigESP";
-  createOTA();
+  #if defined (ARDUINO_ARCH_ESP8266)
+    LEDSetup();
+  #endif
 }
 
 void loop() {

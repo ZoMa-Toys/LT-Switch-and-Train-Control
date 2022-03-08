@@ -30,17 +30,75 @@
   }
 #else
   #include "Servo.h"
+  typedef struct {
+    int RED;
+    uint8_t R_LOW_HIGH;
+    int GREEN;
+    uint8_t G_LOW_HIGH;
+    int BLUE;
+    uint8_t B_LOW_HIGH;
+  } ledtype;
+
+  ledtype LEDS[3] = {{D0,HIGH,D5,LOW,D6,LOW},{D2,HIGH,D3,LOW,D4,LOW},{D7,LOW,D8,HIGH,RX,LOW}};
+  void LEDSetup(){
+    for (auto led: LEDS){
+      pinMode(led.RED,OUTPUT);
+      pinMode(led.GREEN,OUTPUT);
+      pinMode(led.BLUE,OUTPUT);
+    }
+  }
+
+  void switchLEDSide(bool isLeft){
+    if (isLeft){
+      LEDS[0].B_LOW_HIGH=HIGH;
+      LEDS[1].B_LOW_HIGH=LOW;
+    }
+    else{
+      LEDS[0].B_LOW_HIGH=LOW;
+      LEDS[1].B_LOW_HIGH=HIGH;
+    }
+    digitalWrite(LEDS[0].BLUE,LEDS[0].B_LOW_HIGH);
+    digitalWrite(LEDS[1].BLUE,LEDS[1].B_LOW_HIGH);
+  }
+
+  void switchLED_RED_GREEN(int side,bool greenbool){
+    ledtype L = LEDS[side];
+    debugPrint("LEDS:"+String(side)+" green: "+String(greenbool));
+    if (greenbool){
+      L.R_LOW_HIGH=LOW;
+      L.G_LOW_HIGH=HIGH;
+    }
+    else{
+      L.R_LOW_HIGH=HIGH;
+      L.G_LOW_HIGH=LOW;
+    }
+    debugPrint("RED PIN:"+String(L.RED)+" low_high: "+String(L.R_LOW_HIGH));
+    debugPrint("Green PIN:"+String(L.GREEN)+" low_high: "+String(L.G_LOW_HIGH));
+    digitalWrite(L.RED,L.R_LOW_HIGH);
+    digitalWrite(L.GREEN,L.G_LOW_HIGH);
+  }
+
   Servo myservo;
   int pulseToangle(int pulse){
-    debugPrint("pulse:" + String(pulse) + " -> " + String(map(pulse,150,600,0,180)));
     return map(pulse,150,600,0,180);
   }
   void setupPWM_Servo(){
-    myservo.attach(4);
+    myservo.attach(D1);
   }
   void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
+    if(pulse>midPulse){
+      switchLEDSide(true);
+    }
+    else{
+      switchLEDSide(false);
+    }
     myservo.write(pulseToangle(pulse));
+    if (printed){
+      delay(100);
+      myservo.write(pulseToangle(midPulse));
+    }
   }
+
 #endif
 
 
@@ -54,8 +112,8 @@ typedef struct {
 
 int minswitchID = MINSWITCHID;
 int maxswitchID = MAXSWITCHID;
-uint8_t servo[10] = {0,1,2,3,4,5,6,7,4,4};
-sensors sensor[10] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500},{0,500,2500},{0,500,2500}};
+uint8_t servo[10] = {0,1,2,3,4,5,6,7,D1,D1};
+sensors sensor[10] = {{0,500,2500},{1,500,2500},{2,500,2500},{3,500,2500},{7,500,2500},{5,500,2500},{6,500,2500},{4,500,2500},{A0,500,2500},{A0,500,2500}};
 const long interval = 500; 
 int NumOFSwitches=0;
 bool checkLightBool = false;
@@ -86,24 +144,24 @@ void CheckLights(){
     LRDavg=0;
     LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
-    WebSerial.print(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high) + " || " + String(LRD) + "|" );
+    debugPrint(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high) + " || " + String(LRD) + "|" );
     while (now<lastM+waittMillis+100){
       now=millis();
     }
     LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
-    WebSerial.print(String(LRD) + "|" );
+    debugPrint(String(LRD) + "|" );
     while (now<lastM+waittMillis+200){
       now=millis();
     }
     LRD=readSensor(sensor[i].pin);
     LRDavg+=LRD;
     LRDavg/=3;
-    WebSerial.println(String(LRD) + "||" + String(LRDavg));
+    debugPrint(String(LRD) + "||" + String(LRDavg));
     if (setThresholds){
       sensor[i].low=0.5*LRDavg;
       sensor[i].high=LRDavg+(4095-LRDavg)/2;
-      WebSerial.println(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high));
+      debugPrint(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high));
     }
     lastM=millis();
   }

@@ -6,12 +6,15 @@
   #include "lego.h"
 #endif
 
-String helpString[20]={"DebugOff","DebugSerial","DebugWebsocket","ResetESP","SensorOff","SensorOn","CheckLights","SetThresHolds","getConfigESP","StartScan:{\"NumberOfHubs\":<NUMBER>,\"NumberOfRemotes\":<NUMBER>}","StopScan","disconnectHubs"};
+String helpStrings[20]={"DebugOff","DebugSerial","DebugWebsocket","ResetESP","SensorOff","SensorOn","CheckLights","SetThresHolds","getConfigESP","StartScan:{\"NumberOfHubs\":<NUMBER>,\"NumberOfRemotes\":<NUMBER>}","StopScan","disconnectHubs"};
 
 void helper(){
-  for (String h : helpString){
-    debugPrint(h);
+/*   for (const String &helpString : helpStrings){
+    debugPrint(helpString);
     delay(100);
+  } */
+  for (int i=0;i<20;i++){
+    if (helpStrings[i]) debugPrint(helpStrings[i]);
   }
 }
 
@@ -74,6 +77,11 @@ void switchActions(String action,StaticJsonDocument<2048> msg=emptyJSON){
   else if(action=="Updated:"||action=="getConfigESP"){
     messageJSONToSend["action"]="getConfigESP";
   }
+  #if defined (ARDUINO_ARCH_ESP8266)
+    if (action=="red_green"){
+      switchLED_RED_GREEN(msg["side"].as<int>(),msg["green"].as<bool>());
+    }
+  #endif
 }
 
 
