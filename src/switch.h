@@ -219,6 +219,8 @@ class Switches{
     void setParameters(int _servoIndex, int _pulse, String _printed, int _straightPulse, int _turnPulse){
       setPulse(_pulse,(_printed == "Printed" ? true : false));
       midPulse = (_straightPulse + _turnPulse)/2;
+      turnPulse = _turnPulse;
+      straightPulse = _straightPulse;
       servoIndex =_servoIndex;
       servoPin = servo[_servoIndex];
       sensorPin = sensor[_servoIndex].pin;
