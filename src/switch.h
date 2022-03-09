@@ -21,7 +21,7 @@
     pwm.setOscillatorFrequency(27000000);
     pwm.setPWMFreq(50);
   } 
-  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
+  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse, int turnPulse){
     pwm.setPWM(servoPin, 0, pulse); 
       if (printed){
         delay(100);
@@ -48,8 +48,8 @@
     }
   }
 
-  void switchLEDSide(bool isLeft){
-    if (isLeft){
+  void switchLEDSide(bool isTurn){
+    if (isTurn){
       LEDS[0].B_LOW_HIGH=HIGH;
       LEDS[1].B_LOW_HIGH=LOW;
     }
@@ -85,8 +85,8 @@
   void setupPWM_Servo(){
     myservo.attach(D1);
   }
-  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse){
-    if(pulse>midPulse){
+  void turnServoGeneral(int pulse, bool printed, int servoPin,int midPulse, int turnPulse){
+    if(pulse==turnPulse){
       switchLEDSide(true);
     }
     else{
@@ -132,6 +132,12 @@ int readSensor(int pin){
 
 void CheckLights(){
   debugPrint("CheckLights:" + String(checkLightBool) + "setThresholds: " + String(setThresholds));
+  #if defined (ESP32)
+    int maxvalue=4095;
+  #else
+    int maxvalue=1023;
+  #endif
+
   int waittMillis=100;
   int lastM=0;
   int now=millis();
@@ -160,7 +166,7 @@ void CheckLights(){
     debugPrint(String(LRD) + "||" + String(LRDavg));
     if (setThresholds){
       sensor[i].low=0.5*LRDavg;
-      sensor[i].high=LRDavg+(4095-LRDavg)/2;
+      sensor[i].high=LRDavg+(maxvalue-LRDavg)/2;
       debugPrint(String(i) + ": " + String(sensor[i].low) + " - " + String(sensor[i].high));
     }
     lastM=millis();
@@ -200,6 +206,8 @@ class Switches{
   public:
     int pulse = 0;
     int midPulse;
+    int turnPulse;
+    int straightPulse;
     bool printed = 0;
     bool allowed = true;
     long lastMillis = 0;
@@ -208,9 +216,9 @@ class Switches{
     int servoPin;
     int servoIndex;
     bool shouldSendState=true;
-    void setParameters(int _servoIndex, int _pulse, String _printed, int _midPulse){
+    void setParameters(int _servoIndex, int _pulse, String _printed, int _straightPulse, int _turnPulse){
       setPulse(_pulse,(_printed == "Printed" ? true : false));
-      midPulse = _midPulse;
+      midPulse = (_straightPulse + _turnPulse)/2;
       servoIndex =_servoIndex;
       servoPin = servo[_servoIndex];
       sensorPin = sensor[_servoIndex].pin;
@@ -256,7 +264,7 @@ class Switches{
     void turnServo(){
       debugPrint("Counter " + String(counter) + " Turn servo " + String(pulse) + " on " + String(servoPin) );
       
-      turnServoGeneral(pulse,printed,servoPin,midPulse);
+      turnServoGeneral(pulse,printed,servoPin,midPulse,turnPulse);
       
       counter = 0;
     };
@@ -273,8 +281,9 @@ void SwitchTrack(StaticJsonDocument<2048> messageJSON){
 void SetSwitches(StaticJsonDocument<2048> messageJSON){
     int i = 0;
     for (JsonVariant swconf : messageJSON.as<JsonArray>()) {
-        int midPulse = (swconf["pulse"]["Straight"].as<int>() + swconf["pulse"]["Turn"].as<int>())/2;
-        switches[i].setParameters(i,swconf["pulse"][swconf["switched"].as<String>()].as<int>(),swconf["printed"].as<String>(),midPulse);
+        int straightPulse = swconf["pulse"]["Straight"].as<int>();
+        int tunrPulse = swconf["pulse"]["Turn"].as<int>();
+        switches[i].setParameters(i,swconf["pulse"][swconf["switched"].as<String>()].as<int>(),swconf["printed"].as<String>(),straightPulse,tunrPulse);
         switches[i].printValues();
         i++;
     }

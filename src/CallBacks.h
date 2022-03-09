@@ -79,7 +79,18 @@ void switchActions(String action,StaticJsonDocument<2048> msg=emptyJSON){
   }
   #if defined (ARDUINO_ARCH_ESP8266)
     if (action=="red_green"){
-      switchLED_RED_GREEN(msg["side"].as<int>(),msg["green"].as<bool>());
+      int LED_ID;
+      String switchPort = msg["switchPort"].as<String>();
+      if (switchPort == "t"){
+        LED_ID=0;
+      }
+      else if(switchPort == "s"){
+        LED_ID=1;
+      }
+      else{
+        LED_ID=2;
+      }
+      switchLED_RED_GREEN(LED_ID,msg["green"].as<bool>());
     }
   #endif
 }
