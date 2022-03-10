@@ -39,12 +39,15 @@
     uint8_t B_LOW_HIGH;
   } ledtype;
 
-  ledtype LEDS[3] = {{D0,HIGH,D5,LOW,D6,LOW},{D2,HIGH,D3,LOW,D4,LOW},{D7,LOW,D8,HIGH,RX,LOW}};
+  ledtype LEDS[3] = {{D0,LOW,D5,HIGH,D6,LOW},{D2,LOW,D3,HIGH,D4,LOW},{D7,LOW,D8,HIGH,RX,LOW}};
   void LEDSetup(){
     for (auto led: LEDS){
       pinMode(led.RED,OUTPUT);
+      digitalWrite(led.RED,led.R_LOW_HIGH);
       pinMode(led.GREEN,OUTPUT);
+      digitalWrite(led.GREEN,led.G_LOW_HIGH);
       pinMode(led.BLUE,OUTPUT);
+      digitalWrite(led.BLUE,led.B_LOW_HIGH);
     }
   }
 
